@@ -53,7 +53,7 @@ class CameraAsync:
         return data
 
 
-class JoinStateRecorder:
+class JointStateRecorder:
     def __init__(self, topic="/joint_states"):
         self._topic = topic
 

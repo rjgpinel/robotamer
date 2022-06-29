@@ -8,7 +8,7 @@ import pinocchio as pin
 
 from moveit_msgs.msg import RobotState
 from prl_ur5_demos.utils import make_pose
-from robotamer.observer import Camera, CameraAsync, TFRecorder, JointStateRecorder
+from robotamer.core.observer import Camera, CameraAsync, TFRecorder, JointStateRecorder
 from robotamer.core.constants import (
     EEF_FRAME,
     OVERSHOOT_FACTOR,
@@ -147,11 +147,9 @@ class Robot:
         # This goal frame prevent any position drift
         if not self._is_goal_init:
             # Robot current pos
-            latest_t = self.tf_listener.getLatestCommonTime(
-                "prl_ur5_base", self.left_eef_frame
-            )
+            latest_t = self.tf_listener.getLatestCommonTime("prl_ur5_base", EEF_FRAME)
             latest_pose = self.tf_listener.lookupTransform(
-                "prl_ur5_base", self.left_eef_frame, latest_t
+                "prl_ur5_base", EEF_FRAME, latest_t
             )
             self.goal_pose = pin.XYZQUATToSE3(latest_pose[0] + latest_pose[1])
             self._is_goal_init = True
@@ -176,9 +174,7 @@ class Robot:
 
         # Compute an overshoot of the motion in case of missed deadline
         v_avg = np.mean(self.v_avg_record)
-        delta_overshoot_pose = pin.exp6(
-            np.array(v_xyz_rpy) * self.overshoot_factor * dt
-        )
+        delta_overshoot_pose = pin.exp6(np.array(v_xyz_rpy) * OVERSHOOT_FACTOR * dt)
 
         overshoot_pose = delta_overshoot_pose * self.goal_pose
         overshoot_pose.translation = np.array(
@@ -215,7 +211,7 @@ class Robot:
         # Extract trajectory from planning
         trajectory = path.joint_trajectory
 
-        delta_t = dt * (1.0 + self.overshoot_factor)
+        delta_t = dt * (1.0 + OVERSHOOT_FACTOR)
 
         # Keep only first and last point
         trajectory.points = [trajectory.points[0], trajectory.points[-1]]
@@ -262,6 +258,13 @@ class Robot:
     def set_config(self, q):
         success = self.commander.left_arm.go(q, wait=True)
         return success
+
+    def _limit_position(self, position):
+        new_position = []
+        for i, coord in enumerate(position):
+            new_coord = min(max(coord, self.workspace[0][i]), self.workspace[1][i])
+            new_position.append(new_coord)
+        return new_position
 
     def go_to_pose(self, gripper_pos, gripper_orn, cartesian=True):
         gripper_pos = self._limit_position(gripper_pos)

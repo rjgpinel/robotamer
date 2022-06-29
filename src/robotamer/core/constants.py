@@ -19,7 +19,7 @@ CHARLIE_INFO = {
 CAM_INFO = {"bravo_camera": BRAVO_INFO, "charlie_camera": CHARLIE_INFO}
 
 # Controller definition
-LEFT_EEF_FRAME = "left_gripper_grasp_frame"
+EEF_FRAME = "left_gripper_grasp_frame"
 ROBOT_BASE_FRAME = "prl_ur5_base"
 OVERSHOOT_FACTOR = 1.0  # Set to 0.0 for no overshoot
 N_SAMPLES_OVERSHOOT = 1
