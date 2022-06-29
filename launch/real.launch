@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<launch>
+  <include file="$(find prl_ur5_run)/launch/real.launch">
+    <arg name="sensors" value="true"/>
+    <arg name="velocity_control" value="true"/>
+  </include>
+</launch>
