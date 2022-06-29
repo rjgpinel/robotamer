@@ -1,3 +1,4 @@
+import gym
 import rospy
 
 import numpy as np
@@ -6,10 +7,8 @@ import matplotlib.pyplot as plt
 from collections import deque
 from math import pi
 from gym.utils import seeding
-from robotame.robot import Robot
-from robotame.core.constants import REAL_DT, SIM_DT, CAM_INFO
-from muse.envs.utils import realsense_resize_crop
-from muse.core.utils import quat_to_euler
+from robotamer.core.robot import Robot
+from robotamer.core.constants import REAL_DT, SIM_DT, CAM_INFO
 
 WORKSPACE = np.array([[-0.695, -0.175, 0.00], [-0.295, 0.175, 0.2]])
 
@@ -25,7 +24,7 @@ LEFT_DEFAULT_CONF = [
 ]
 
 
-class BaseEnv:
+class BaseEnv(gym.Env):
     def __init__(
         self, cam_list=["bravo_camera", "charlie_camera"], depth=False, cam_info=None
     ):
@@ -36,7 +35,7 @@ class BaseEnv:
         self.gripper_workspace = self.workspace.copy()
         self.gripper_workspace[:, 2] = GRIPPER_HEIGHT_INIT
 
-        self.left_home_config = LEFT_HOME_CONFIG
+        self.left_home_config = LEFT_DEFAULT_CONF
 
         self.rate = rospy.Rate(1.0 / REAL_DT)
         self.cam_list = cam_list
@@ -70,7 +69,7 @@ class BaseEnv:
         if gripper_orn is None:
             gripper_orn = [pi, 0, pi / 2]
 
-        success = self.real_robot.go_to_pose(gripper_pos, gripper_orn, cartesian=True)
+        success = self.robot.go_to_pose(gripper_pos, gripper_orn, cartesian=True)
 
         if not success:
             print("Moving the robot to default position failed")
