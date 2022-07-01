@@ -31,3 +31,4 @@ COMMAND_ROS_TOPIC = "/left_arm/scaled_pos_joint_traj_controller/command"
 EEF_STEPS = 0.01
 JUMP_THRESHOLD = 0.0
 JOINTS_STATE_TOPIC = "/joint_states"
+Q_VEL_THRESHOLD = 2  # rad/s

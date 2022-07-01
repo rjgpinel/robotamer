@@ -20,6 +20,7 @@ from robotamer.core.constants import (
     EEF_STEPS,
     JUMP_THRESHOLD,
     JOINTS_STATE_TOPIC,
+    Q_VEL_THRESHOLD,
 )
 from sensor_msgs.msg import JointState
 from trajectory_msgs.msg import JointTrajectory
@@ -246,7 +247,6 @@ class Robot:
         return True, ""
 
     def check_jumps(self, trajectory):
-        Q_THRESHOLD = 2  # rad/s
         num_joints = len(trajectory.points[0].positions)
         for i in range(len(trajectory.points) - 1):
             for j in range(num_joints):
@@ -258,7 +258,7 @@ class Robot:
                     trajectory.points[i + 1].time_from_start.to_sec()
                     - trajectory.points[i].time_from_start.to_sec()
                 )
-                if diff_q / diff_t > Q_THRESHOLD:
+                if diff_q / diff_t > Q_VEL_THRESHOLD:
                     return False
         return True
 
