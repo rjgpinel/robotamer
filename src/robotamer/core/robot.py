@@ -205,11 +205,16 @@ class Robot:
         path, fraction = self.commander.left_arm.compute_cartesian_path(
             [moveit_overshoot_pose], eef_step=EEF_STEPS, jump_threshold=JUMP_THRESHOLD
         )
+
         if fraction < 1.0:
             return False, "No cartesian path found"
 
         # Extract trajectory from planning
         trajectory = path.joint_trajectory
+        valid = self.check_jumps(trajectory)
+
+        if not valid:
+            return False, "No cartesian path found. Exceeded joint velocity threshold"
 
         delta_t = dt * (1.0 + OVERSHOOT_FACTOR)
 
@@ -231,9 +236,31 @@ class Robot:
         ]
         trajectory.points[1].accelerations = []
 
+        valid = self.check_jumps(trajectory)
+
+        if not valid:
+            return False, "No cartesian path found. Exceeded joint velocity threshold"
+
         # Execute
         self._traj_publisher.publish(trajectory)
         return True, ""
+
+    def check_jumps(self, trajectory):
+        Q_THRESHOLD = 2  # rad/s
+        num_joints = len(trajectory.points[0].positions)
+        for i in range(len(trajectory.points) - 1):
+            for j in range(num_joints):
+                diff_q = np.abs(
+                    trajectory.points[i].positions[j]
+                    - trajectory.points[i + 1].positions[j]
+                )
+                diff_t = (
+                    trajectory.points[i + 1].time_from_start.to_sec()
+                    - trajectory.points[i].time_from_start.to_sec()
+                )
+                if diff_q / diff_t > Q_THRESHOLD:
+                    return False
+        return True
 
     def move_gripper(self, state, wait=False):
         if state == "open":
