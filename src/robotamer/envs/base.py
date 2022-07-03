@@ -23,12 +23,12 @@ WORKSPACE = np.array([[-0.695, -0.175, 0.00], [-0.295, 0.175, 0.2]])
 GRIPPER_HEIGHT_INIT = np.array([0.06, 0.10])
 
 LEFT_DEFAULT_CONF = [
-    -0.73303829,
-    -1.6406095,
-    -1.98967535,
-    -1.72787596,
-    -2.05948852,
-    -2.565634,
+    -0.9773843811168246,
+    -1.7627825445142729,
+    -2.321287905152458,
+    -1.1344640137963142,
+    -2.199114857512855,
+    -2.3387411976724017,
 ]
 
 
@@ -157,7 +157,6 @@ class BaseEnv(gym.Env):
         obs["gripper_state"] = self.robot._grasped
 
         # TODO: Add joints state
-
         return obs
 
     def close(self):
