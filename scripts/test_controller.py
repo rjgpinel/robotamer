@@ -29,7 +29,7 @@ def main():
             {
                 "linear_velocity": np.array([0.0, 0.0, 0.0]),
                 "angular_velocity": np.array([0.0, 0.0, -0.5]),
-                "grip_open": 0,
+                "grip_open": 1,
             }
         )
 
