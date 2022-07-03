@@ -40,7 +40,6 @@ class StackEnv(BaseEnv):
         initial_xy = [[INIT_X + (-CUBES_DIST * i), INIT_Y] for i in range(num_cubes)]
         for i in sorted(list(range(num_cubes)), reverse=True):
             cube_pos = sim_obs[f"cube{i}_pos"]
-            # TODO: add safe_height
             get_success = self.get(cube_pos)
             if not get_success:
                 raise RuntimeError("Cleaning scene failed")
