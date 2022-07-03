@@ -21,6 +21,7 @@ from robotamer.core.constants import (
     JUMP_THRESHOLD,
     JOINTS_STATE_TOPIC,
     Q_VEL_THRESHOLD,
+    ROBOT_BASE_FRAME,
 )
 from sensor_msgs.msg import JointState
 from trajectory_msgs.msg import JointTrajectory
@@ -148,9 +149,9 @@ class Robot:
         # This goal frame prevent any position drift
         if not self._is_goal_init:
             # Robot current pos
-            latest_t = self.tf_listener.getLatestCommonTime("prl_ur5_base", EEF_FRAME)
+            latest_t = self.tf_listener.getLatestCommonTime(ROBOT_BASE_FRAME, EEF_FRAME)
             latest_pose = self.tf_listener.lookupTransform(
-                "prl_ur5_base", EEF_FRAME, latest_t
+                ROBOT_BASE_FRAME, EEF_FRAME, latest_t
             )
             self.goal_pose = pin.XYZQUATToSE3(latest_pose[0] + latest_pose[1])
             self._is_goal_init = True
