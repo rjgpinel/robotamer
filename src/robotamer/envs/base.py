@@ -49,7 +49,7 @@ class BaseEnv(gym.Env):
         self.cam_list = cam_list
 
         # Controller
-        self.robot = Robot(self.gripper_workspace, cam_list, depth=depth)
+        self.robot = Robot(self.workspace, cam_list, depth=depth)
 
         # Depth flag
         self._depth = depth
