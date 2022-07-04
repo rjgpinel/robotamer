@@ -1,4 +1,6 @@
 import rospy
+
+from numpy import pi
 from robotamer.envs.base import BaseEnv
 
 INIT_X = 0.085

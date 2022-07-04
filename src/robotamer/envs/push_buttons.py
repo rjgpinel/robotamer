@@ -1,3 +1,5 @@
+from numpy import pi
+
 from robotamer.envs.base import BaseEnv
 
 BUTTONS_DIST = 0.135
@@ -36,24 +38,25 @@ class PushButtonsEnv(BaseEnv):
         eef_safe_pos[-1] = GRIPPER_HEIGHT_INIT
         success_safe_pos = self.robot.go_to_pose(eef_safe_pos, eef_orn)
         num_buttons = sim_envs.num_buttons + sim_envs.num_distractors
+        default_orn = [pi, 0, pi / 2]
         initial_xy = [
             [INIT_X, BUTTONS_DIST + (-BUTTONS_DIST * i)] for i in range(num_buttons)
         ]
         for i in range(num_buttons):
             button_pos = sim_obs[f"button{i}_pos"]
-            get_success = self.get(
+            get_success = self.get([
                 button_pos[0],
                 button_pos[1],
-                BUTTONS_HEIGHT / 2,
+                BUTTONS_HEIGHT / 2], default_orn
             )
             if not get_success:
                 raise RuntimeError("Cleaning scene failed")
 
             x_put, y_put = initial_xy[i]
-            put_success = self.put(
+            put_success = self.put([
                 x_put,
                 y_put,
-                BUTTONS_HEIGHT / 2,
+                BUTTONS_HEIGHT / 2], default_orn
             )
             if not put_success:
                 raise RuntimeError("Cleaning scene failed")

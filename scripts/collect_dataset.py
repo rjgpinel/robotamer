@@ -1,5 +1,6 @@
 import argparse
 import muse.envs
+import robotamer.envs
 import gym
 import rospy
 import torch
@@ -14,7 +15,6 @@ from math import pi
 from pathlib import Path
 from tqdm import tqdm
 from einops import rearrange
-from prl_ur5_diffsim2real.pick import PickEnv
 from muse.envs.utils import realsense_resize_crop, realsense_resize_batch_crop
 from muse.core.constants import REALSENSE_CROP, REALSENSE_RESOLUTION
 from ibc.data.utils import filter_state
@@ -65,7 +65,7 @@ def get_args_parser():
     parser.add_argument("--output-dir", default="", type=str)
     parser.add_argument("--init-seed", default=5000, type=int)
     parser.add_argument("--cam-list", default="", type=str)
-    parser.add_argument("--env-name", default="Stack-v0", type=str)
+    parser.add_argument("--env-name", default="Pick-v0", type=str)
     parser.add_argument("--num-episodes", default=25, type=int)
     parser.add_argument(
         "--visualize", action="store_true", help="Visualize sim2real comparison"
@@ -88,13 +88,15 @@ def main(args):
     sim_env_name = args.env_name
     real_env_name = f"RealRobot-{sim_env_name}"
     sim_env = gym.make(sim_env_name)
-    real_env = gym.make(real_env_name)
 
     # define cameras
     if args.cam_list:
         cam_list = args.cam_list.split(",")
     else:
         cam_list = sim_env.unwrapped.cam_list
+
+    real_env = gym.make(real_env_name, cam_list= cam_list)
+
     num_streams = len(cam_list)
 
     # visualize sim trajectory
@@ -182,16 +184,17 @@ def main(args):
         for action_idx in range(len(actions)):
             action = actions[action_idx]
             action["angular_velocity"] = np.zeros_like(action["linear_velocity"])
+
             # copy sim joint velocities - maybe use real ones
-            real_obs["arms_joint_vel"] = sim_episode_traj[action_idx][0][
-                "arms_joint_vel"
-            ]
-            for cam_i, cam_name in enumerate(args.cam_list):
+            # real_obs["arms_joint_vel"] = sim_episode_traj[action_idx][0][
+                # "arms_joint_vel"
+            # ]
+            for cam_i, cam_name in enumerate(cam_list):
                 step_frames[cam_i, :, :, :] = torch.from_numpy(
                     real_obs[f"rgb_{cam_name}"]
                 )
-            frames = realsense_resize_batch_crop(step_frames.to(ptu.device))
-            for cam_i, cam_name in enumerate(args.cam_list):
+            frames, _ = realsense_resize_batch_crop(step_frames.to(ptu.device))
+            for cam_i, cam_name in enumerate(cam_list):
                 real_obs[f"rgb_{cam_name}"] = frames[cam_i].cpu().numpy()
 
             real_episode_traj.append((real_obs, action))

@@ -54,9 +54,10 @@ class BaseEnv(gym.Env):
         # Depth flag
         self._depth = depth
         self._grip_history = deque(maxlen=5)
+        # import pudb; pudb.set_trace()
 
         # Cam info
-        self.cam_info = {CAM_INFO[cam_name] for cam_name in cam_list}
+        self.cam_info = {f"info_{cam_name}": CAM_INFO[cam_name] for cam_name in cam_list}
         self._np_random = np.random
 
         self.safe_height = GRIPPER_HEIGHT_INIT[-1]
@@ -166,7 +167,7 @@ class BaseEnv(gym.Env):
         current_pose = self.robot.eef_pose()
         current_pos, current_orn = current_pose
         waypoints = [
-            current_pose,
+            make_pose(current_pos, current_orn, frame_id=ROBOT_BASE_FRAME).pose,
             make_pose(
                 [current_pos[0], current_pos[1], self.safe_height],
                 current_orn,
@@ -174,21 +175,21 @@ class BaseEnv(gym.Env):
             ).pose,
             make_pose(
                 [pos[0], pos[1], self.safe_height],
-                current_ori,
+                current_orn,
                 frame_id=ROBOT_BASE_FRAME,
             ).pose,
             make_pose(
                 [pos[0], pos[1], self.safe_height], orn, frame_id=ROBOT_BASE_FRAME
             ).pose,
             make_pose(
-                [pos[0], pos[1], pos[2]],
+                pos,
                 orn,
                 frame_id=ROBOT_BASE_FRAME,
             ).pose,
         ]
 
         # Move in cartesian space through the waypoints
-        path, fraction = self.real_robot.robot.left_arm.compute_cartesian_path(
+        path, fraction = self.robot.commander.left_arm.compute_cartesian_path(
             waypoints=waypoints,
             eef_step=EEF_STEPS,
             jump_threshold=JUMP_THRESHOLD,
@@ -199,7 +200,7 @@ class BaseEnv(gym.Env):
             return False
 
         state = self.robot.commander.get_current_state()
-        path = self.real_robot.robot.left_arm.retime_trajectory(
+        path = self.robot.commander.left_arm.retime_trajectory(
             state, path, 0.5, 0.5, "time_optimal_trajectory_generation"
         )
 
@@ -213,8 +214,8 @@ class BaseEnv(gym.Env):
             return move_success
 
         # Allow collision between the table and the cube during the pick and place
-        self.real_robot.robot.left_arm.set_support_surface_name("table")
-        touch_links = self.real_robot.robot.get_link_names(group="left_gripper")
+        self.robot.commander.left_arm.set_support_surface_name("table")
+        touch_links = self.robot.commander.get_link_names(group="left_gripper")
         touch_links.append("left_camera_link")
 
         self.robot.commander.left_gripper.set_named_target("close")
@@ -242,8 +243,8 @@ class BaseEnv(gym.Env):
         success = self.robot.commander.left_gripper.go(wait=True)
 
         waypoints = [
-            current_pose,
-            make_pose(current_pos, [pi, 0, 0], frame_id=ROBOT_BASE_FRAME).pose,
+            make_pose(pos, [pi, 0, pi / 2], frame_id=ROBOT_BASE_FRAME).pose,
+            make_pose(pos, [pi, 0, 0], frame_id=ROBOT_BASE_FRAME).pose,
         ]
         # Move in cartesian space through the waypoints
         path, fraction = self.robot.commander.left_arm.compute_cartesian_path(
