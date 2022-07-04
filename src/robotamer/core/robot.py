@@ -64,7 +64,7 @@ class Robot:
         self.tf_listener = tf.TransformListener()
         self.tf_brodcaster = tf.TransformBroadcaster()
         # EEF transformation recorder
-        self._eef_tf_recorder = TFRecorder("prl_ur5_base", EEF_FRAME)
+        self._eef_tf_recorder = TFRecorder(ROBOT_BASE_FRAME, EEF_FRAME)
         # Joints state recorder
         self.joints_state_recorder = JointStateRecorder()
 
