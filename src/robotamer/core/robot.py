@@ -23,6 +23,7 @@ from robotamer.core.constants import (
     Q_VEL_THRESHOLD,
     ROBOT_BASE_FRAME,
 )
+from robotamer.core.utils import compute_goal_pose
 from sensor_msgs.msg import JointState
 from trajectory_msgs.msg import JointTrajectory
 
@@ -156,18 +157,8 @@ class Robot:
             self.goal_pose = pin.XYZQUATToSE3(latest_pose[0] + latest_pose[1])
             self._is_goal_init = True
 
-        # Concatenate
-        v_xyz_rpy = np.concatenate((v_xyz, v_rpy))
-
-        # Record the velocity for later filter (to compute overshoot)
-        self.v_avg_record[self.i_avg] = v_xyz_rpy
-        self.i_avg = (self.i_avg + 1) % N_SAMPLES_OVERSHOOT
-
-        # delta pose during duration dt
-        delta_pose = pin.exp6(np.array(v_xyz_rpy) * dt)
-
         # Update the goal frame (relatively to the world frame)
-        self.goal_pose = delta_pose * self.goal_pose
+        self.goal_pose = compute_goal_pose(dt, v_xyz, v_rpy, self.goal_pose)
 
         # Apply workspace limits
         self.goal_pose.translation = np.array(
@@ -175,10 +166,9 @@ class Robot:
         )
 
         # Compute an overshoot of the motion in case of missed deadline
-        v_avg = np.mean(self.v_avg_record)
-        delta_overshoot_pose = pin.exp6(np.array(v_xyz_rpy) * OVERSHOOT_FACTOR * dt)
-
-        overshoot_pose = delta_overshoot_pose * self.goal_pose
+        overshoot_pose = compute_goal_pose(
+            OVERSHOOT_FACTOR * dt, v_xyz, v_rpy, self.goal_pose
+        )
         overshoot_pose.translation = np.array(
             self._limit_position(overshoot_pose.translation)
         )
@@ -191,17 +181,6 @@ class Robot:
         list_overshoot_pose = pin.SE3ToXYZQUAT(overshoot_pose)
         list_overshoot_pose = [list_overshoot_pose[:3], list_overshoot_pose[3:]]
         moveit_overshoot_pose = make_pose(*list_overshoot_pose)
-
-        # For debug purposes
-        # self.tf_brodcaster.sendTransform(
-        # *list_goal_pose, rospy.Time.now(), "left_goal_frame", "/prl_ur5_base"
-        # )
-        # self.tf_brodcaster.sendTransform(
-        # *list_overshoot_pose,
-        # rospy.Time.now(),
-        # "left_overshoot_frame",
-        #     "/prl_ur5_base",
-        # )
 
         # Compute path
         path, fraction = self.commander.left_arm.compute_cartesian_path(
