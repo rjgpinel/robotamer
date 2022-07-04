@@ -8,8 +8,20 @@ envs = [
         reward_threshold=1.0,
     ),
     dict(
+        id="RealRobot-Stack-v0",
+        entry_point="robotamer.envs.stack:StackEnv",
+        max_episode_steps=600,
+        reward_threshold=1.0,
+    ),
+    dict(
         id="RealRobot-Push-v0",
         entry_point="robotamer.envs.push:PushEnv",
+        max_episode_steps=600,
+        reward_threshold=1.0,
+    ),
+    dict(
+        id="RealRobot-PushButtons-v0",
+        entry_point="robotamer.envs.push_buttons:PushButtonsEnv",
         max_episode_steps=600,
         reward_threshold=1.0,
     ),
