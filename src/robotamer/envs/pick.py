@@ -3,7 +3,7 @@ from numpy import pi
 from robotamer.envs.base import BaseEnv
 
 INITIAL_XY = [-0.1125, 0.0]
-CUBE_HEIGHT = 0.025 * 2
+CUBE_HEIGHT = 0.0225 * 2
 
 class PickEnv(BaseEnv):
     def __init__(self, cam_list, depth=False):

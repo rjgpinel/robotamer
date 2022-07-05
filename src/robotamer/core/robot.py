@@ -29,7 +29,7 @@ from trajectory_msgs.msg import JointTrajectory
 
 
 class Robot:
-    def __init__(self, workspace, cam_list, depth=False, cam_async=True):
+    def __init__(self, workspace, cam_list, depth=False, cam_async=False):
         # Create ros node
         moveit_commander.roscpp_initialize(sys.argv)
 
