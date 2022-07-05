@@ -4,6 +4,10 @@ import rospy
 import skvideo.io
 import warnings
 
+import robotamer.envs
+import muse.envs
+
+import gym
 import numpy as np
 import ibc.utils.torch as ptu
 
@@ -23,8 +27,6 @@ from ibc.model.factory import create_vision_model, create_bc_model
 
 from muse.envs.utils import realsense_resize_crop, realsense_resize_batch_crop
 from muse.core.constants import REALSENSE_CROP, REALSENSE_RESOLUTION
-
-from prl_ur5_diffsim2real.pick import PickEnv
 
 warnings.filterwarnings("ignore")
 
@@ -89,7 +91,7 @@ def main(args):
             att_hook = AttentionHook(model)
 
     # reset the agent before any experiment
-    env = PickEnv(args.cam_list)
+    env = gym.make("RealRobot-Pick-v0", cam_list=args.cam_list)
     obs = env.reset()
 
     traj = []
@@ -132,10 +134,16 @@ def main(args):
                 action[k] = v.cpu().detach().numpy()
 
         action["linear_velocity"] = action["linear_velocity"].squeeze(0)
+
         if action["linear_velocity"].shape[0] == 2:
             linear_vel = np.zeros(3)
             linear_vel[:2] = action["linear_velocity"]
             action["linear_velocity"] = linear_vel
+
+        # print(action["linear_velocity"].sum())
+        # if action["linear_velocity"].sum() < 0.001:
+        #     print("ESP")
+        #     action["linear_velocity"][-1] = -0.01
 
         if "angular_velocity" not in action.keys():
             action["angular_velocity"] = np.zeros_like(action["linear_velocity"])
