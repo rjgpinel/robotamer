@@ -57,7 +57,9 @@ class BaseEnv(gym.Env):
         # import pudb; pudb.set_trace()
 
         # Cam info
-        self.cam_info = {f"info_{cam_name}": CAM_INFO[cam_name] for cam_name in cam_list}
+        self.cam_info = {
+            f"info_{cam_name}": CAM_INFO[cam_name] for cam_name in cam_list
+        }
         self._np_random = np.random
 
         self.safe_height = GRIPPER_HEIGHT_INIT[-1]
@@ -264,3 +266,29 @@ class BaseEnv(gym.Env):
         self.robot.commander.left_gripper.set_named_target("close")
         success = self.robot.commander.left_gripper.go(wait=True)
         return success
+
+    def move(self, gripper_pos, gripper_quat=None, open_gripper=True):
+
+        gripper_pos = gripper_pos.astype(np.float)
+        gripper_quat = None
+
+        if gripper_quat is not None:
+            gripper_orn = quat_to_euler(gripper_quat, False)
+        else:
+            gripper_orn = [pi, 0, pi / 2]
+        success = self.robot.go_to_pose(gripper_pos, gripper_orn, cartesian=True)
+
+        if open_gripper:
+            self.robot.move_gripper("open", wait=True)
+            pass
+        else:
+            self.robot.move_gripper("close", wait=True)
+            pass
+
+        obs = self.render()
+        return (
+            obs,
+            None,
+            False,
+            {"success": success},
+        )
