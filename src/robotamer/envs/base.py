@@ -103,9 +103,9 @@ class BaseEnv(gym.Env):
         grip_open_mean = np.mean(self._grip_history)
 
         if grip_open_mean > 0:
-            self.robot.move_gripper("open", wait=True)
+            self.robot.move_gripper("open", wait=False)
         else:
-            self.robot.move_gripper("close", wait=True)
+            self.robot.move_gripper("close", wait=False)
 
         processed_action["linear_velocity"] = (
             action["linear_velocity"] * SIM_DT / REAL_DT

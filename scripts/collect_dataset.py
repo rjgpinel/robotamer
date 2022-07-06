@@ -63,14 +63,18 @@ def get_args_parser():
     parser = argparse.ArgumentParser("Data collection script", add_help=False)
     # Directory to save trajectory
     parser.add_argument("--output-dir", default="", type=str)
-    parser.add_argument("--init-seed", default=5000, type=int)
+    parser.add_argument("--init-seed", default=0, type=int)
+    parser.add_argument("--num-cubes", default=3, type=int)
     parser.add_argument("--cam-list", default="", type=str)
-    parser.add_argument("--env-name", default="Pick-v0", type=str)
-    parser.add_argument("--num-episodes", default=25, type=int)
+    parser.add_argument("--env-name", default="Var0-Stack-v0", type=str)
+    parser.add_argument("--num-episodes", default=10, type=int)
+    parser.add_argument(
+        "--crop", action="store_true", help="Crop observations"
+    )
     parser.add_argument(
         "--visualize", action="store_true", help="Visualize sim2real comparison"
     )
-    parser.set_defaults(visualize=False)
+    parser.set_defaults(visualize=False, crop=False)
     return parser
 
 
@@ -87,7 +91,7 @@ def main(args):
     # create envs
     sim_env_name = args.env_name
     real_env_name = f"RealRobot-{sim_env_name}"
-    sim_env = gym.make(sim_env_name)
+    sim_env = gym.make(sim_env_name, num_cubes=args.num_cubes)
 
     # define cameras
     if args.cam_list:
@@ -140,6 +144,8 @@ def main(args):
         sim_obs = sim_env.reset()
         gripper_pos = sim_obs["gripper_pos"]
 
+        set_success = real_env.set_scene(sim_env)
+
         agent = sim_env.unwrapped.oracle()
         gripper_pos = sim_obs["gripper_pos"]
 
@@ -163,6 +169,9 @@ def main(args):
 
         if not info["success"]:
             sim_stats["failure_seeds"].append(seed)
+            sim_env.seed(seed)
+            sim_env.reset()
+            real_env.clean_scene(sim_env)
             continue
 
         sim_stats["successful_seeds"].append(seed)
@@ -177,7 +186,6 @@ def main(args):
             sim_stats["actions"] += [action]
 
         # real trajectory
-        set_success = real_env.set_scene(sim_env)
         real_obs = real_env.reset(gripper_pos=gripper_pos)
         real_traj = [real_obs["gripper_pos"]]
         real_episode_traj = []
@@ -185,18 +193,19 @@ def main(args):
             action = actions[action_idx]
             action["angular_velocity"] = np.zeros_like(action["linear_velocity"])
 
-            # copy sim joint velocities - maybe use real ones
-            # real_obs["arms_joint_vel"] = sim_episode_traj[action_idx][0][
-                # "arms_joint_vel"
-            # ]
+            if "Var" in args.env_name:
+                # FIXME: copy sim joint velocities - maybe use real ones
+                real_obs["arms_joint_vel"] = sim_episode_traj[action_idx][0][
+                    "arms_joint_vel"
+                ]
             for cam_i, cam_name in enumerate(cam_list):
                 step_frames[cam_i, :, :, :] = torch.from_numpy(
                     real_obs[f"rgb_{cam_name}"]
                 )
-            frames, _ = realsense_resize_batch_crop(step_frames.to(ptu.device))
-            for cam_i, cam_name in enumerate(cam_list):
-                real_obs[f"rgb_{cam_name}"] = frames[cam_i].cpu().numpy()
-
+            if args.crop:
+                frames, _ = realsense_resize_batch_crop(step_frames.to(ptu.device))
+                for cam_i, cam_name in enumerate(cam_list):
+                    real_obs[f"rgb_{cam_name}"] = frames[cam_i].cpu().numpy()
             real_episode_traj.append((real_obs, action))
             real_obs, _, _, _ = real_env.step(action)
             real_traj.append(real_obs["gripper_pos"])
