@@ -33,7 +33,7 @@ from utils_sim2real import (
     Instructions,
 )
 
-import robotarm.envs
+import robotamer.envs
 import muse.envs
 import gym
 
@@ -325,34 +325,12 @@ def main():
         else:
             variant_env_name = args.env_name
 
-        sim_env = gym.make(variant_env_name)
-        sim_env.seed(args.seed)
-        cam_list = sim_env.unwrapped.cam_list
-        sim_obs = sim_env.reset()
-
-        num_buttons = 3
-        buttons_position = []
-        for i in range(num_buttons):
-            buttons_position.append(sim_obs[f"button{i}_pos"])
-
-        buttons_size = 0.0025
-        buttons_dist = 0.135
-
-        initial_xy = [
-            [-0.1125, buttons_dist + (-buttons_dist * i)] for i in range(num_buttons)
-        ]
-
-        cam_info = {}
-        for cam_name in cam_list:
-            cam_info[f"info_{cam_name}"] = sim_obs[f"info_{cam_name}"]
-
-        real_env = gym.make("RealRobot-Pick-v0", cam_list=cam_list, depth=True)
+        real_env = gym.make("RealRobot-Pick-v0", cam_list=["bravo_camera", "charlie_camera"], depth=True)
         # real_env.reset()
         env = MujocoEnv(
             model=model["model"],
-            real_env=real_env,
-            sim_env=sim_env,
-            instructions=instructions,
+            env=real_env,
+            instructions=args.instructions,
             gripper_pose=args.gripper_pose,
         )
 
