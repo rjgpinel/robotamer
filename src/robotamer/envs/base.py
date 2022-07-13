@@ -97,15 +97,16 @@ class BaseEnv(gym.Env):
     def step(self, action):
         processed_action = {}
 
-        # Move the gripper
-        grip_open = action["grip_open"]
-        self._grip_history.append(grip_open)
-        grip_open_mean = np.mean(self._grip_history)
+        if "grip_open" in action.keys():
+            # Move the gripper
+            grip_open = action["grip_open"]
+            self._grip_history.append(grip_open)
+            grip_open_mean = np.mean(self._grip_history)
 
-        if grip_open_mean > 0:
-            self.robot.move_gripper("open", wait=True)
-        else:
-            self.robot.move_gripper("close", wait=True)
+            if grip_open_mean > 0:
+                self.robot.move_gripper("open", wait=False)
+            else:
+                self.robot.move_gripper("close", wait=False)
 
         processed_action["linear_velocity"] = (
             action["linear_velocity"] * SIM_DT / REAL_DT

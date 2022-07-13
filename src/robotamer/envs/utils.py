@@ -1,3 +1,5 @@
+from scipy.spatial.transform import Rotation
+
 def safe_random_pose(self):
     current_pose = self.real_robot.robot.left_arm.get_current_pose().pose
     current_pos = [
@@ -48,3 +50,14 @@ def safe_random_pose(self):
     success = self.real_robot.robot.left_arm.execute(path, wait=True)
 
     return success
+
+
+def euler_to_quat(euler, degrees):
+    rotation = Rotation.from_euler("xyz", euler, degrees=degrees)
+    return rotation.as_quat()
+
+
+def quat_to_euler(quat, degrees):
+    rotation = Rotation.from_quat(quat)
+    return rotation.as_euler("xyz", degrees=degrees)
+

@@ -25,6 +25,12 @@ envs = [
         max_episode_steps=600,
         reward_threshold=1.0,
     ),
+    dict(
+        id="RealRobot-NutAssembly-v0",
+        entry_point="robotamer.envs.assembly:NutAssemblyEnv",
+        max_episode_steps=1000,
+        reward_threshold=1.0,
+    ),
 ]
 
 
