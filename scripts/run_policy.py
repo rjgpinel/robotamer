@@ -38,6 +38,7 @@ def get_args_parser():
     parser.add_argument("--cam-list", default="", type=str)
     parser.add_argument("--record", action="store_true", help="Record policy running")
     parser.add_argument("--att-maps", action="store_true", help="Attention maps")
+    parser.add_argument("--env-name", help="Env name", default="RealRobot-Pick-v0")
     parser.set_defaults(record=False, att_maps=False)
     return parser
 
@@ -91,7 +92,7 @@ def main(args):
             att_hook = AttentionHook(model)
 
     # reset the agent before any experiment
-    env = gym.make("RealRobot-Pick-v0", cam_list=args.cam_list)
+    env = gym.make(args.env_name, cam_list=args.cam_list)
     obs = env.reset()
 
     traj = []
@@ -133,22 +134,12 @@ def main(args):
             if type(v) is not np.ndarray:
                 action[k] = v.cpu().detach().numpy()
 
-        action["linear_velocity"] = action["linear_velocity"].squeeze(0)
-
-        if action["linear_velocity"].shape[0] == 2:
-            linear_vel = np.zeros(3)
-            linear_vel[:2] = action["linear_velocity"]
-            action["linear_velocity"] = linear_vel
-
-        # print(action["linear_velocity"].sum())
-        # if action["linear_velocity"].sum() < 0.001:
-        #     print("ESP")
-        #     action["linear_velocity"][-1] = -0.01
+        # TODO: Inside envs
+        if "linear_velocity" in action.keys():
+            action["linear_velocity"] = action["linear_velocity"].squeeze(0)
 
         if "angular_velocity" not in action.keys():
-            action["angular_velocity"] = np.zeros_like(action["linear_velocity"])
-            if "theta_velocity" in action.keys():
-                action["angular_velocity"][-1] = action["theta_velocity"]
+            action["angular_velocity"] = np.zeros((3))
         else:
             action["angular_velocity"] = action["angular_velocity"].squeeze(0)
 
