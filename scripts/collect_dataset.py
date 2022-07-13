@@ -140,6 +140,8 @@ def main(args):
         sim_obs = sim_env.reset()
         gripper_pos = sim_obs["gripper_pos"]
 
+        set_success = real_env.set_scene(sim_env)
+
         agent = sim_env.unwrapped.oracle()
         gripper_pos = sim_obs["gripper_pos"]
 
@@ -149,7 +151,7 @@ def main(args):
         sim_episode_traj = []
         actions = []
         for i in range(sim_env.spec.max_episode_steps):
-            action = agent.get_action()
+            action = agent.get_action(sim_obs)
             actions.append(action)
             if action is None:
                 print("Expert trajectory finished.")
@@ -163,6 +165,9 @@ def main(args):
 
         if not info["success"]:
             sim_stats["failure_seeds"].append(seed)
+            sim_env.seed(seed)
+            sim_env.reset()
+            real_env.clean_scene(sim_env)
             continue
 
         sim_stats["successful_seeds"].append(seed)
@@ -177,7 +182,6 @@ def main(args):
             sim_stats["actions"] += [action]
 
         # real trajectory
-        set_success = real_env.set_scene(sim_env)
         real_obs = real_env.reset(gripper_pos=gripper_pos)
         real_traj = [real_obs["gripper_pos"]]
         real_episode_traj = []
