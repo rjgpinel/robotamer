@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import rospkg
 import rospy
 import numpy as np
@@ -11,7 +12,7 @@ from math import pi
 from pathlib import Path
 from tqdm import tqdm
 from yaml import load
-from robotamer.core.tf import pos_quat_to_hom
+from robotamer.core.tf import pos_quat_to_hom, hom_to_pos
 
 try:
     from yaml import CLoader as Loader
@@ -25,7 +26,7 @@ def get_args_parser():
     parser.add_argument("--output-dir", default="", type=str)
     parser.add_argument(
         "--poses",
-        default=1000,
+        default=250,
         type=int,
         help="Number of poses to collect",
     )
@@ -50,8 +51,11 @@ def compute_target_pos(obs):
 
 def main(args):
     output_dir = Path(args.output_dir)
-    real_output_dir = outpur_dir / "real"
-    sim_output_dir = outpur_dir / "sim"
+    real_output_dir = output_dir / "real"
+    sim_output_dir = output_dir / "sim"
+
+    real_output_dir.mkdir(parents=True, exist_ok=True)
+    sim_output_dir.mkdir(parents=True, exist_ok=True)
 
     sim_env_name = args.env_name
     sim_env = gym.make(sim_env_name)
@@ -74,6 +78,10 @@ def main(args):
 
     dataset = []
     try:
+        real_env.reset()
+
+        x_get, y_get = real_env.INITIAL_XY
+        center_success = real_env.center_object_pos([x_get, y_get, real_env.CUBE_HEIGHT / 2])
         for seed in tqdm(range(args.init_seed, args.init_seed + args.poses)):
             sim_env.seed(seed)
             sim_obs = sim_env.reset()
@@ -94,7 +102,9 @@ def main(args):
                 sim_processed_obs[f"rgb_{cam_name}"] = sim_obs[f"rgb_{cam_name}"]
 
             set_success = real_env.set_scene(sim_env)
-            real_obs = real_env.reset(gripper_pos=gripper_pos)
+            default_orn = [pi, 0, pi / 2]
+            real_env.safe_move_cartesian(gripper_pos, default_orn)
+            real_obs = real_env.unwrapped.render()
 
             real_processed_obs = dict(
                 gripper_pos=gripper_pos,
@@ -104,11 +114,13 @@ def main(args):
             for cam_name in cam_list:
                 real_processed_obs[f"rgb_{cam_name}"] = real_obs[f"rgb_{cam_name}"]
 
-            with open(str(real_output_path / f"{seed:07d}.pkl"), "wb") as f:
+            with open(str(real_output_dir / f"{seed:07d}.pkl"), "wb") as f:
                 pkl.dump((real_processed_obs, target_pos), f)
 
-            with open(str(sim_output_path / f"{seed:07d}.pkl"), "wb") as f:
+            with open(str(sim_output_dir / f"{seed:07d}.pkl"), "wb") as f:
                 pkl.dump((sim_processed_obs, target_pos), f)
+
+            real_env.clean_scene(sim_env)
 
     except Exception as e:
         print(e)
