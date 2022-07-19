@@ -31,6 +31,12 @@ envs = [
         max_episode_steps=1000,
         reward_threshold=1.0,
     ),
+    dict(
+        id="RealRobot-Rope-v0",
+        entry_point="robotamer.envs.rope:RopeEnv",
+        max_episode_steps=1000,
+        reward_threshold=1.0,
+    ),
 ]
 
 

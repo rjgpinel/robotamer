@@ -34,7 +34,7 @@ warnings.filterwarnings("ignore")
 def get_args_parser():
     parser = argparse.ArgumentParser("BC policy running script", add_help=False)
     parser.add_argument("--checkpoint", default="", type=str)
-    parser.add_argument("--max-steps", default=1200, type=int)
+    parser.add_argument("--max-steps", default=5000, type=int)
     parser.add_argument("--cam-list", default="", type=str)
     parser.add_argument("--record", action="store_true", help="Record policy running")
     parser.add_argument("--att-maps", action="store_true", help="Attention maps")
