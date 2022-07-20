@@ -16,7 +16,8 @@ class StackEnv(BaseEnv):
 
     def set_scene(self, sim_env):
         sim_obs = sim_env.observe()
-        num_cubes = sim_env.num_cubes + sim_env.num_distractors
+        # num_cubes = sim_env.num_cubes + sim_env.num_distractors
+        num_cubes = 2
 
         initial_xy = [[INIT_X + (-CUBES_DIST * i), INIT_Y] for i in range(num_cubes)]
         default_orn = [pi, 0, pi / 2]
@@ -38,7 +39,7 @@ class StackEnv(BaseEnv):
         eef_safe_pos, eef_orn = self.robot.eef_pose()
         eef_safe_pos[-1] = GRIPPER_HEIGHT_INIT
         success_safe_pos = self.robot.go_to_pose(eef_safe_pos, eef_orn)
-        num_cubes = sim_env.num_cubes + sim_env.num_distractors
+        num_cubes = 2
         initial_xy = [[INIT_X + (-CUBES_DIST * i), INIT_Y] for i in range(num_cubes)]
         for i in sorted(list(range(num_cubes)), reverse=True):
             cube_pos = sim_obs[f"cube{i}_pos"]
