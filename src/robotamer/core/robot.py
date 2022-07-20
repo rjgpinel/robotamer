@@ -195,7 +195,7 @@ class Robot:
         valid = self.check_jumps(trajectory)
 
         if not valid:
-            return False, "No cartesian path found. Exceeded joint velocity threshold"
+            raise RuntimeError("No cartesian path found. Exceeded joint velocity threshold")
 
         delta_t = dt * (1.0 + OVERSHOOT_FACTOR)
 
@@ -220,7 +220,7 @@ class Robot:
         valid = self.check_jumps(trajectory)
 
         if not valid:
-            return False, "No cartesian path found. Exceeded joint velocity threshold"
+            raise RuntimeError("No cartesian path found. Exceeded joint velocity threshold")
 
         # Execute
         self._traj_publisher.publish(trajectory)
