@@ -39,7 +39,7 @@ def get_args_parser():
 def compute_target_pos(obs):
     gripper_pos, gripper_quat = obs["gripper_pos"], obs["gripper_quat"]
     cube_pos, cube_quat = obs["cube0_pos"], [0, 0, 0, 1]
-
+    
     world_T_target = pos_quat_to_hom(cube_pos, cube_quat)
     world_T_gripper = pos_quat_to_hom(gripper_pos, gripper_quat)
     gripper_T_world = np.linalg.inv(world_T_gripper)
@@ -47,6 +47,21 @@ def compute_target_pos(obs):
     target_pos = hom_to_pos(gripper_T_target)
 
     return target_pos
+
+def save_stats(stats, output_dir):
+    processed_stats = {
+        "cam_list": stats["cam_list"],
+    }
+    for k, v in stats.items():
+        if k != "cam_list":
+            processed_stats[k] = {
+                "mean": np.mean(v, axis=0),
+                "std": np.std(v, axis=0),
+            }
+
+    with open(str(output_dir / "stats.pkl"), "wb") as f:
+        pkl.dump(processed_stats, f)
+
 
 
 def main(args):
@@ -121,9 +136,13 @@ def main(args):
                 pkl.dump((sim_processed_obs, target_pos), f)
 
             real_env.clean_scene(sim_env)
+        save_stats(stats, sim_output_dir)
+        save_stats(stats, real_output_dir)
 
     except Exception as e:
         print(e)
+    finally:
+        real_env.put([x_get, y_get, real_env.CUBE_HEIGHT/2], [pi, 0, pi/2])
 
 
 if __name__ == "__main__":
