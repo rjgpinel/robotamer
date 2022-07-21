@@ -29,26 +29,28 @@ from trajectory_msgs.msg import JointTrajectory
 
 
 class Robot:
-    def __init__(self, workspace, cam_list, depth=False, cam_async=False):
+    def __init__(self, workspace, cam_list, depth=False, cam_async=False, arm='left'):
         # Create ros node
         moveit_commander.roscpp_initialize(sys.argv)
 
         # Initialize the robot
         self.commander = moveit_commander.RobotCommander()
         self.scene = moveit_commander.PlanningSceneInterface(synchronous=True)
+        self.arm = getattr(self.commander, f'{arm}_arm')
+        self.gripper = getattr(self.commander, f'{arm}_gripper')
 
         # Configure the planning pipeline
-        self.commander.left_arm.set_max_velocity_scaling_factor(
+        self.arm.set_max_velocity_scaling_factor(
             MAX_VELOCITY_SCALING_FACTOR
         )
-        self.commander.left_arm.set_max_acceleration_scaling_factor(
+        self.arm.set_max_acceleration_scaling_factor(
             MAX_ACCELERATION_SCALING_FACTOR
         )
-        self.commander.left_arm.set_planning_time(PLANNING_TIME)
-        self.commander.left_arm.set_planner_id("RRTstar")
+        self.arm.set_planning_time(PLANNING_TIME)
+        self.arm.set_planner_id("RRTstar")
 
         # Set eef link
-        self.commander.left_arm.set_end_effector_link(EEF_FRAME)
+        self.arm.set_end_effector_link(EEF_FRAME)
 
         # limits
         self.workspace = workspace
@@ -183,7 +185,7 @@ class Robot:
         moveit_overshoot_pose = make_pose(*list_overshoot_pose)
 
         # Compute path
-        path, fraction = self.commander.left_arm.compute_cartesian_path(
+        path, fraction = self.arm.compute_cartesian_path(
             [moveit_overshoot_pose], eef_step=EEF_STEPS, jump_threshold=JUMP_THRESHOLD
         )
 
@@ -259,11 +261,11 @@ class Robot:
         elif not self._grasped and state == "close":
             self._grasped = True
 
-        self.commander.left_gripper.set_named_target(state)
-        self.commander.left_gripper.go(wait=wait)
+        self.gripper.set_named_target(state)
+        self.gripper.go(wait=wait)
 
     def set_config(self, q):
-        success = self.commander.left_arm.go(q, wait=True)
+        success = self.arm.go(q, wait=True)
         return success
 
     def _limit_position(self, position):
@@ -278,14 +280,14 @@ class Robot:
         gripper_pose = make_pose(gripper_pos, gripper_orn)
         success = False
         if cartesian:
-            left_path, left_fraction = self.commander.left_arm.compute_cartesian_path(
+            path, fraction = self.arm.compute_cartesian_path(
                 [gripper_pose], eef_step=EEF_STEPS, jump_threshold=JUMP_THRESHOLD
             )
-            if left_fraction >= 1.0:
-                self.commander.left_arm.execute(left_path, wait=True)
+            if fraction >= 1.0:
+                self.arm.execute(path, wait=True)
                 success = True
         else:
-            self.commander.left_arm.set_pose_target(gripper_pose)
-            success = self.commander.left_arm.go(wait=True)
+            self.arm.set_pose_target(gripper_pose)
+            success = self.arm.go(wait=True)
 
         return success

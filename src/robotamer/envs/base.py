@@ -18,38 +18,52 @@ from robotamer.core.constants import (
     JUMP_THRESHOLD,
 )
 
-WORKSPACE = np.array([[-0.695, -0.175, 0.00], [-0.295, 0.175, 0.2]])
+WORKSPACE = {
+    'left': np.array([[-0.695, -0.175, 0.00], [-0.295, 0.175, 0.2]]),
+    'right': np.array([[0.695, -0.175, 0.00], [0.295, 0.175, 0.2]])
+}
 
 GRIPPER_HEIGHT_INIT = np.array([0.06, 0.10])
 
-LEFT_DEFAULT_CONF = [
-    -0.9773843811168246,
-    -1.7627825445142729,
-    -2.321287905152458,
-    -1.1344640137963142,
-    -2.199114857512855,
-    -2.3387411976724017,
-]
+DEFAULT_CONF = {
+    'left': [
+        -0.9773843811168246,
+        -1.7627825445142729,
+        -2.321287905152458,
+        -1.1344640137963142,
+        -2.199114857512855,
+        -2.3387411976724017,
+    ],
+    'right': [
+	-0.575959,
+	-2.687807,
+	-0.767945,
+	0.314159,
+	-1.047198,
+	0,
+    ]
+}
 
 
 class BaseEnv(gym.Env):
     def __init__(
-        self, cam_list=["bravo_camera", "charlie_camera"], depth=False, cam_info=None
+        self, cam_list=["bravo_camera", "charlie_camera"], depth=False, cam_info=None, arm='left'
     ):
         rospy.init_node("env_node", log_level=rospy.INFO)
 
         # Workspace definition
-        self.workspace = WORKSPACE
+        self.workspace = WORKSPACE[arm]
         self.gripper_workspace = self.workspace.copy()
         self.gripper_workspace[:, 2] = GRIPPER_HEIGHT_INIT
 
-        self.left_home_config = LEFT_DEFAULT_CONF
+        self.home_config = DEFAULT_CONF[arm]
 
         self.rate = rospy.Rate(1.0 / REAL_DT)
         self.cam_list = cam_list
 
         # Controller
-        self.robot = Robot(self.workspace, cam_list, depth=depth)
+        self.robot = Robot(self.workspace, cam_list, depth=depth, arm=arm)
+        self.arm_name = arm
 
         # Depth flag
         self._depth = depth
@@ -75,7 +89,7 @@ class BaseEnv(gym.Env):
         return position
 
     def _reset(self, gripper_pos=None, gripper_orn=None, open_gripper=True, **kwargs):
-        self.robot.set_config(self.left_home_config)
+        self.robot.set_config(self.home_config)
         if gripper_pos is None:
             gripper_pos = self.sample_random_gripper_pos()
 
@@ -192,7 +206,7 @@ class BaseEnv(gym.Env):
         ]
 
         # Move in cartesian space through the waypoints
-        path, fraction = self.robot.commander.left_arm.compute_cartesian_path(
+        path, fraction = self.robot.arm.compute_cartesian_path(
             waypoints=waypoints,
             eef_step=EEF_STEPS,
             jump_threshold=JUMP_THRESHOLD,
@@ -203,11 +217,11 @@ class BaseEnv(gym.Env):
             return False
 
         state = self.robot.commander.get_current_state()
-        path = self.robot.commander.left_arm.retime_trajectory(
+        path = self.robot.arm.retime_trajectory(
             state, path, 0.5, 0.5, "time_optimal_trajectory_generation"
         )
 
-        success = self.robot.commander.left_arm.execute(path, wait=True)
+        success = self.robot.arm.execute(path, wait=True)
         return success
 
     def pick(self, pick_pos, pick_orn):
@@ -217,12 +231,12 @@ class BaseEnv(gym.Env):
             return move_success
 
         # Allow collision between the table and the cube during the pick and place
-        self.robot.commander.left_arm.set_support_surface_name("table")
-        touch_links = self.robot.commander.get_link_names(group="left_gripper")
-        touch_links.append("left_camera_link")
+        self.robot.arm.set_support_surface_name("table")
+        touch_links = self.robot.commander.get_link_names(group="{self.arm_name}_gripper")
+        touch_links.append("{self.arm_name}_camera_link")
 
-        self.robot.commander.left_gripper.set_named_target("close")
-        success = self.robot.commander.left_gripper.go(wait=True)
+        self.robot.gripper.set_named_target("close")
+        success = self.robot.gripper.go(wait=True)
         return success
 
     def put(self, put_pos, put_orn):
@@ -231,9 +245,9 @@ class BaseEnv(gym.Env):
         if not move_success:
             return move_success
 
-        self.robot.commander.left_arm.set_support_surface_name("table")
-        self.robot.commander.left_gripper.set_named_target("open")
-        success = self.robot.commander.left_gripper.go(wait=True)
+        self.robot.arm.set_support_surface_name("table")
+        self.robot.gripper.set_named_target("open")
+        success = self.robot.gripper.go(wait=True)
         return success
 
     def center_object_pos(self, pos):
@@ -242,15 +256,15 @@ class BaseEnv(gym.Env):
 
         # Pick and open
         success = self.pick(pos, [pi, 0, pi / 2])
-        self.robot.commander.left_gripper.set_named_target("open")
-        success = self.robot.commander.left_gripper.go(wait=True)
+        self.robot.gripper.set_named_target("open")
+        success = self.robot.gripper.go(wait=True)
 
         waypoints = [
             make_pose(pos, [pi, 0, pi / 2], frame_id=ROBOT_BASE_FRAME).pose,
             make_pose(pos, [pi, 0, 0], frame_id=ROBOT_BASE_FRAME).pose,
         ]
         # Move in cartesian space through the waypoints
-        path, fraction = self.robot.commander.left_arm.compute_cartesian_path(
+        path, fraction = self.robot.arm.compute_cartesian_path(
             waypoints=waypoints,
             eef_step=EEF_STEPS,
             jump_threshold=JUMP_THRESHOLD,
@@ -260,12 +274,12 @@ class BaseEnv(gym.Env):
             return False
 
         state = self.robot.commander.get_current_state()
-        path = self.robot.commander.left_arm.retime_trajectory(
+        path = self.robot.arm.retime_trajectory(
             state, path, 0.5, 0.5, "time_optimal_trajectory_generation"
         )
-        success = self.robot.commander.left_arm.execute(path, wait=True)
-        self.robot.commander.left_gripper.set_named_target("close")
-        success = self.robot.commander.left_gripper.go(wait=True)
+        success = self.robot.arm.execute(path, wait=True)
+        self.robot.gripper.set_named_target("close")
+        success = self.robot.gripper.go(wait=True)
         return success
 
     def move(self, gripper_pos, gripper_quat=None, open_gripper=True):

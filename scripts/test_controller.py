@@ -10,10 +10,11 @@ from robotamer.envs.pick import PickEnv
 
 
 def main():
-    pick_env = gym.make("RealRobot-Pick-v0", cam_list=[])
+    pick_env = gym.make("RealRobot-Pick-v0", cam_list=[], arm='right')
     # pickenv = PickEnv([])
 
-    gripper_pos = [-0.40, 0, 0.1]
+    gripper_pos = ([-0.40, 0, 0.1] if pick_env.arm_name == 'left'
+                   else [0.40, 0, 0.1])
     real_obs = pick_env.reset(gripper_pos=gripper_pos)
 
     error_nb = 0
