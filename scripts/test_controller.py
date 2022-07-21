@@ -22,16 +22,33 @@ def main():
 
     # input("Gripper should be good...")
 
-    n_step = 1000
     step_size = 0.1
-    for i in range(n_step):
+    n_step = 10 / step_size
+    for i in range(int(n_step / 1.5)):
         real_obs = pick_env.step(
             {
-                "linear_velocity": np.array([0.0, 0.0, 0.0]),
-                "angular_velocity": np.array([0.0, 0.0, -0.5]),
+                "linear_velocity": np.array([0.0, 0, 0.0]),
+                "angular_velocity": np.array([0.0, 0.0, 3.14 / 10]),
                 "grip_open": 1,
             }
         )
+    # for i in range(int(n_step / 1.5)):
+    #     real_obs = pick_env.step(
+    #         {
+    #             "linear_velocity": np.array([0.0, 0, 0.0]),
+    #             "angular_velocity": np.array([-3.14 / 10, 0.0, 0.0]),
+    #             "grip_open": 1,
+    #         }
+    #     )
+
+    # for i in range(int(n_step / 1.5)):
+    #     real_obs = pick_env.step(
+    #         {
+    #             "linear_velocity": np.array([0.0, 0, 0.0]),
+    #             "angular_velocity": np.array([0.0, -3.14 / 10, 0.0]),
+    #             "grip_open": 1,
+    #         }
+    #     )
 
     print(f"Gripper should have moved {n_step*step_size*SIM_DT} m")
     print("Done")
