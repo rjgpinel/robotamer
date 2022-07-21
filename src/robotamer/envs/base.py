@@ -19,14 +19,14 @@ from robotamer.core.constants import (
 )
 
 WORKSPACE = {
-    'left': np.array([[-0.695, -0.175, 0.00], [-0.295, 0.175, 0.2]]),
-    'right': np.array([[0.695, -0.175, 0.00], [0.295, 0.175, 0.2]])
+    "left": np.array([[-0.695, -0.175, 0.00], [-0.295, 0.175, 0.2]]),
+    "right": np.array([[0.295, -0.175, 0.00], [0.695, 0.175, 0.2]]),
 }
 
 GRIPPER_HEIGHT_INIT = np.array([0.06, 0.10])
 
 DEFAULT_CONF = {
-    'left': [
+    "left": [
         -0.9773843811168246,
         -1.7627825445142729,
         -2.321287905152458,
@@ -34,7 +34,7 @@ DEFAULT_CONF = {
         -2.199114857512855,
         -2.3387411976724017,
     ],
-    'right': # [
+    "right":  # [
     #     1.2217304763960306,
     #     -1.4486232791552935,
     #     1.4835298641951802,
@@ -42,13 +42,24 @@ DEFAULT_CONF = {
     #     -2.2863813201125716,
     #     -2.670353755551324,
     # ]
-    [1.2915436464758039, -1.6929693744344996, 1.5533430342749532, -1.1344640137963142, 2.303834612632515, -1.064650843716541],
+    [
+        1.2915436464758039,
+        -1.6929693744344996,
+        1.5533430342749532,
+        -1.1344640137963142,
+        2.303834612632515,
+        -1.064650843716541,
+    ],
 }
 
 
 class BaseEnv(gym.Env):
     def __init__(
-        self, cam_list=["bravo_camera", "charlie_camera"], depth=False, cam_info=None, arm='left'
+        self,
+        cam_list=["bravo_camera", "charlie_camera"],
+        depth=False,
+        cam_info=None,
+        arm="left",
     ):
         rospy.init_node("env_node", log_level=rospy.INFO)
 
@@ -233,7 +244,9 @@ class BaseEnv(gym.Env):
 
         # Allow collision between the table and the cube during the pick and place
         self.robot.arm.set_support_surface_name("table")
-        touch_links = self.robot.commander.get_link_names(group="{self.arm_name}_gripper")
+        touch_links = self.robot.commander.get_link_names(
+            group="{self.arm_name}_gripper"
+        )
         touch_links.append("{self.arm_name}_camera_link")
 
         self.robot.gripper.set_named_target("close")

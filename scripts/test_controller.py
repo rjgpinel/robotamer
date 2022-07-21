@@ -35,7 +35,7 @@ def main():
     for i in range(int(n_step / 1.5)):
         real_obs = pick_env.step(
             {
-                "linear_velocity": np.array([-0.01, 0, 0.0]),
+                "linear_velocity": np.array([0.01, 0.0, 0.0]),
                 "angular_velocity": np.array([0.0, 0.0, 0.0]),
                 "grip_open": 1,
             }
@@ -52,7 +52,7 @@ def main():
     for i in range(int(n_step / 1.5)):
         real_obs = pick_env.step(
             {
-                "linear_velocity": np.array([0.0, 0, 0.01]),
+                "linear_velocity": np.array([0.0, 0.0, 0.01]),
                 "angular_velocity": np.array([0.0, 0.0, 0.0]),
                 "grip_open": 1,
             }
