@@ -29,33 +29,37 @@ from trajectory_msgs.msg import JointTrajectory
 
 
 class Robot:
-    def __init__(self, workspace, cam_list, depth=False, cam_async=False):
+    def __init__(self, workspace, cam_list, depth=False, cam_async=False, arm='left'):
         # Create ros node
         moveit_commander.roscpp_initialize(sys.argv)
 
         # Initialize the robot
         self.commander = moveit_commander.RobotCommander()
         self.scene = moveit_commander.PlanningSceneInterface(synchronous=True)
+        self.arm_name = arm
+        self.arm = getattr(self.commander, f'{arm}_arm')
+        self.gripper = getattr(self.commander, f'{arm}_gripper')
+        self.eef_frame = EEF_FRAME[arm]
 
         # Configure the planning pipeline
-        self.commander.left_arm.set_max_velocity_scaling_factor(
+        self.arm.set_max_velocity_scaling_factor(
             MAX_VELOCITY_SCALING_FACTOR
         )
-        self.commander.left_arm.set_max_acceleration_scaling_factor(
+        self.arm.set_max_acceleration_scaling_factor(
             MAX_ACCELERATION_SCALING_FACTOR
         )
-        self.commander.left_arm.set_planning_time(PLANNING_TIME)
-        self.commander.left_arm.set_planner_id("RRTstar")
+        self.arm.set_planning_time(PLANNING_TIME)
+        self.arm.set_planner_id("RRTstar")
 
         # Set eef link
-        self.commander.left_arm.set_end_effector_link(EEF_FRAME)
+        self.arm.set_end_effector_link(self.eef_frame)
 
         # limits
         self.workspace = workspace
 
         # Trajectory Publisher
         self._traj_publisher = rospy.Publisher(
-            COMMAND_ROS_TOPIC,
+            COMMAND_ROS_TOPIC[arm],
             JointTrajectory,
             queue_size=1,
         )
@@ -64,7 +68,7 @@ class Robot:
         self.tf_listener = tf.TransformListener()
         self.tf_brodcaster = tf.TransformBroadcaster()
         # EEF transformation recorder
-        self._eef_tf_recorder = TFRecorder(ROBOT_BASE_FRAME, EEF_FRAME)
+        self._eef_tf_recorder = TFRecorder(ROBOT_BASE_FRAME, self.eef_frame)
         # Joints state recorder
         self.joints_state_recorder = JointStateRecorder()
 
@@ -150,9 +154,9 @@ class Robot:
         # This goal frame prevent any position drift
         if not self._is_goal_init:
             # Robot current pos
-            latest_t = self.tf_listener.getLatestCommonTime(ROBOT_BASE_FRAME, EEF_FRAME)
+            latest_t = self.tf_listener.getLatestCommonTime(ROBOT_BASE_FRAME, self.eef_frame)
             latest_pose = self.tf_listener.lookupTransform(
-                ROBOT_BASE_FRAME, EEF_FRAME, latest_t
+                ROBOT_BASE_FRAME, self.eef_frame, latest_t
             )
             self.goal_pose = pin.XYZQUATToSE3(latest_pose[0] + latest_pose[1])
             self._is_goal_init = True
@@ -183,7 +187,7 @@ class Robot:
         moveit_overshoot_pose = make_pose(*list_overshoot_pose)
 
         # Compute path
-        path, fraction = self.commander.left_arm.compute_cartesian_path(
+        path, fraction = self.arm.compute_cartesian_path(
             [moveit_overshoot_pose], eef_step=EEF_STEPS, jump_threshold=JUMP_THRESHOLD
         )
 
@@ -259,11 +263,11 @@ class Robot:
         elif not self._grasped and state == "close":
             self._grasped = True
 
-        self.commander.left_gripper.set_named_target(state)
-        self.commander.left_gripper.go(wait=wait)
+        self.gripper.set_named_target(state)
+        self.gripper.go(wait=wait)
 
     def set_config(self, q):
-        success = self.commander.left_arm.go(q, wait=True)
+        success = self.arm.go(q, wait=True)
         return success
 
     def _limit_position(self, position):
@@ -278,14 +282,14 @@ class Robot:
         gripper_pose = make_pose(gripper_pos, gripper_orn)
         success = False
         if cartesian:
-            left_path, left_fraction = self.commander.left_arm.compute_cartesian_path(
+            path, fraction = self.arm.compute_cartesian_path(
                 [gripper_pose], eef_step=EEF_STEPS, jump_threshold=JUMP_THRESHOLD
             )
-            if left_fraction >= 1.0:
-                self.commander.left_arm.execute(left_path, wait=True)
+            if fraction >= 1.0:
+                self.arm.execute(path, wait=True)
                 success = True
         else:
-            self.commander.left_arm.set_pose_target(gripper_pose)
-            success = self.commander.left_arm.go(wait=True)
+            self.arm.set_pose_target(gripper_pose)
+            success = self.arm.go(wait=True)
 
         return success

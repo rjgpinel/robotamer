@@ -19,14 +19,14 @@ CHARLIE_INFO = {
 CAM_INFO = {"bravo_camera": BRAVO_INFO, "charlie_camera": CHARLIE_INFO}
 
 # Controller definition
-EEF_FRAME = "left_gripper_grasp_frame"
+EEF_FRAME = {"left": "left_gripper_grasp_frame", "right": "right_gripper_grasp_frame"}
 ROBOT_BASE_FRAME = "prl_ur5_base"
 OVERSHOOT_FACTOR = 1.0  # Set to 0.0 for no overshoot
 N_SAMPLES_OVERSHOOT = 1
 MAX_VELOCITY_SCALING_FACTOR = 0.2
 MAX_ACCELERATION_SCALING_FACTOR = 0.2
 PLANNING_TIME = 2.0
-COMMAND_ROS_TOPIC = "/left_arm/scaled_pos_joint_traj_controller/command"
+COMMAND_ROS_TOPIC = {"left": "/left_arm/scaled_pos_joint_traj_controller/command", "right": "/right_arm/scaled_pos_joint_traj_controller/command"}
 # COMMAND_ROS_TOPIC = "/left_arm/scaled_vel_joint_traj_controller/command" # Velocity controller
 EEF_STEPS = 0.01
 JUMP_THRESHOLD = 0.0
