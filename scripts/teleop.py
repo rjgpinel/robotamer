@@ -9,7 +9,19 @@ def talker():
     rate = rospy.Rate(10) # 10hz
     while not rospy.is_shutdown():
         cmd = Joy()
-        cmd.axes = [0, 0, 1, 0.5, 0, 0]
+        # cmd.axes = [1, 0.5, 0, 0, 0, 0]
+        cmd.buttons = [0] * 12
+        key = input()
+        if key == 'w':
+            cmd.axes = [1, 0.0, 0, 0, 0, 0]
+        elif key == 'a':
+            cmd.axes = [0.0, 0.5, 0, 0, 0, 0]
+        elif key == 's':
+            cmd.axes = [-1, 0.0, 0, 0, 0, 0]
+        elif key == 'd':
+            cmd.axes = [0, -0.5, 0, 0, 0, 0]
+        elif key == 'x':
+            cmd.buttons = [1] + [0] * 11
         rospy.loginfo(cmd)
         pub.publish(cmd)
         rate.sleep()
