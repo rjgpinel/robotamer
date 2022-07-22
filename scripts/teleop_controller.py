@@ -3,49 +3,97 @@ import time
 import robotamer.envs
 import gym
 import rospy
+import pickle
 
 import numpy as np
 from math import pi
+from datetime import datetime
 
-from PIL import Image
-from robotamer.core.constants import SIM_DT
 from robotamer.envs.pick import PickEnv
 from sensor_msgs.msg import Joy
 
 
-def callback(data, env, x_scale=0.1, y_scale=0.1):
+class Dataset:
+
+    def __init__(self, path):
+        self.path = path
+        self.episodes = []
+
+    def reset(self, obs):
+        if self.episodes:
+            for k in self.episodes[-1]:
+                self.episodes[-1][k] = np.array(self.episodes[-1][k])
+        self.episodes.append({'observations': [obs], 'actions': []})
+
+    def append(self, act, next_obs):
+        self.episodes[-1]['actions'].append(act)
+        self.episodes[-1]['observations'].append(next_obs)
+
+    def save(self):
+        episodes = self.episodes
+        if episodes and not episodes[-1]['actions']:
+            # Leave out last empty episode.
+            episodes = episodes[:-1]
+        with open(self.path, 'wb') as f:
+            pickle.dump(episodes, f)
+
+
+def callback(data, env, dataset, x_scale=0.1, y_scale=0.1):
     print('Received', data)
-    joy_left = data.axes[2]
-    joy_up = data.axes[3]
-    vx = x_scale * joy_up
-    vy = y_scale * joy_left
+    joy_left = data.axes[0]
+    joy_up = data.axes[1]
+    done = data.buttons[0]
+    vx = y_scale * joy_left
+    vy = x_scale * joy_up
     action = {
         "linear_velocity": np.array([vx, vy, 0.0]),
         "angular_velocity": np.array([0.0, 0.0, 0.0]),
         "grip_open": 1,
     }
-    print('Sending', action)
-    real_obs = env.step(action)
+    action_2d = [vx, vy]
+    # print('Sending', action)
+    if done:
+        print('Finished episode; Resetting arm')
+        obs = reset_arm(env)
+        dataset.reset(obs)
+        dataset.save()
+        print('Reset finished')
+        print('Ready to receive joystick controls')
+    else:
+        real_obs = env.step(action)
+        dataset.append(action_2d, real_obs)
 
 
-def main():
-    pick_env = gym.make("RealRobot-Pick-v0", cam_list=[], arm='right')
-
-    if pick_env.arm_name == 'left':
+def reset_arm(env):
+    if env.arm_name == 'left':
         gripper_pos = [-0.40, 0, 0.1]
         gripper_orn = [pi, 0, pi / 2]
     else:
         gripper_pos = [0.40, 0, 0.1]
         gripper_orn = [pi, 0, -pi / 2]
-    real_obs = pick_env.reset(gripper_pos=gripper_pos, gripper_orn=gripper_orn)
+    obs = env.reset(gripper_pos=gripper_pos, gripper_orn=gripper_orn)
+    return obs
 
-    # rospy.init_node('teleop_controller')
-    env_step_callback = functools.partial(callback, env=pick_env)
-    rospy.Subscriber('joy_teleop', Joy, env_step_callback)
-    print('Ready to receive joystick controls')
 
-    rospy.spin()
+def main():
+    pick_env = gym.make("RealRobot-Pick-v0", cam_list=[], arm='right')
+    real_obs = reset_arm(pick_env)
+
+    timestamp = datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+    dataset_path = f'/scratch/azimov/malakuja/data/rrlfd/pushing_demos_sim_dev_{timestamp}.pkl'
+    dataset = Dataset(dataset_path)
+    dataset.reset(real_obs)
+    env_step_callback = functools.partial(callback, env=pick_env, dataset=dataset)
+    try:
+        rospy.Subscriber('joy_teleop', Joy, env_step_callback)
+        print('Ready to receive joystick controls')
+
+        rospy.spin()
+    except rospy.ROSInterruptException:
+        dataset.save()
 
 
 if __name__ == "__main__":
     main()
+
+
