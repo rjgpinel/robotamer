@@ -4,7 +4,7 @@ import rospy
 from sensor_msgs.msg import Joy
 
 def talker():
-    pub = rospy.Publisher('joy_teleop', Joy, queue_size=1)
+    pub = rospy.Publisher('joy', Joy, queue_size=1)
     rospy.init_node('teleop', anonymous=True)
     rate = rospy.Rate(10) # 10hz
     while not rospy.is_shutdown():
@@ -14,13 +14,13 @@ def talker():
         cmd.buttons = [0] * 12
         key = input()
         if key == 'w':
-            cmd.axes = [1, 0.0, 0, 0, 0, 0]
+            cmd.axes = [0, 1, 0, 0, 0, 0]
         elif key == 'a':
-            cmd.axes = [0.0, 0.5, 0, 0, 0, 0]
+            cmd.axes = [0.5, 0, 0, 0, 0, 0]
         elif key == 's':
-            cmd.axes = [-1, 0.0, 0, 0, 0, 0]
+            cmd.axes = [0, -1, 0, 0, 0, 0]
         elif key == 'd':
-            cmd.axes = [0, -0.5, 0, 0, 0, 0]
+            cmd.axes = [-0.5, 0, 0, 0, 0, 0]
         elif key == 'x':
             cmd.buttons = [1] + [0] * 11
         rospy.loginfo(cmd)
