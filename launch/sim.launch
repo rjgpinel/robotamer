@@ -4,4 +4,10 @@
     <!-- <arg name="sensors" value="true"/> -->
     <arg name="velocity_control" value="true"/>
   </include>
+
+  <node pkg="joy" type="joy_node" name="joy_node">
+        <param name="dev" type="string" value="/dev/input/js0" />
+        <param name="autorepeat_rate" value="10"/>
+  </node>
+
 </launch>
