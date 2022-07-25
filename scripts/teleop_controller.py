@@ -90,7 +90,7 @@ def main():
     env_step_callback = functools.partial(
         callback, env=pick_env, dataset=dataset, x_scale=0.05, y_scale=0.05)
     try:
-        rospy.Subscriber('joy', Joy, env_step_callback, queue_size=1)
+        rospy.Subscriber('joy_teleop', Joy, env_step_callback, queue_size=1)
         print('Ready to receive joystick controls')
 
         rospy.spin()
