@@ -13,8 +13,7 @@ class ActionRepeater:
 
     def callback(self, action):
         """Only send action if non-zero or if the last action was nonzero."""
-        # print('Received', data)
-        zero_action = not np.any(action.axes) and not np.any(action.buttons)
+        zero_action = not np.any(action.axes)
         if not zero_action or not self.prev_action_zero:
             self.publisher.publish(action)
         self.prev_action_zero = zero_action

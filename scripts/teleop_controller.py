@@ -56,6 +56,7 @@ def callback(data, env, dataset, x_scale=0.1, y_scale=0.1):
     action_2d = [vx, vy]
     # print('Sending', action)
     if done:
+        # TODO: Could convert lists to arrays here without appending a new obs.
         print('Finished episode; Resetting arm')
         obs = reset_arm(env)
         dataset.reset(obs)
@@ -82,7 +83,7 @@ def main():
     pick_env = gym.make("RealRobot-Pick-v0", cam_list=[], arm='right')
     real_obs = reset_arm(pick_env)
 
-    timestamp = datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+    timestamp = datetime.now().strftime('%Y-%m-%dT%H-%M-%S')
     dataset_path = os.path.join(os.environ['TOP_DATA_DIR'],
                                 f'rrlfd/pushing_demos_sim_dev_{timestamp}.pkl')
     dataset = Dataset(dataset_path)
