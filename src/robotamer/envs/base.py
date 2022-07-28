@@ -42,16 +42,16 @@ DEFAULT_CONF = {
     #     -2.2863813201125716,
     #     -2.670353755551324,
     # ]
-    # [
-    #     1.2915436464758039,
-    #     -1.6929693744344996,
-    #     1.5533430342749532,
-    #     -1.1344640137963142,
-    #     2.303834612632515,
-    #     -1.064650843716541,
-    # ],
+    [
+        1.2915436464758039,
+        -1.6929693744344996,
+        1.5533430342749532,
+        -1.1344640137963142,
+        2.303834612632515,
+        -1.064650843716541,
+    ],
     # Pushing start position.
-    [0.9326989669308903, -1.752094800707198, 1.7692552040365719, -1.070880584564021, 2.1902111646944924, 2.3613882129912653]
+    # [0.9326989669308903, -1.752094800707198, 1.7692552040365719, -1.070880584564021, 2.1902111646944924, 2.3613882129912653]
     # [-1.544117350934758, -1.545942555282938, -1.54736573102487, 0.0038076134003528495, 1.5741106580621542, -0.785054080293274],
     # [
 }
@@ -127,15 +127,24 @@ class BaseEnv(gym.Env):
         diff = np.subtract(config, self.home_config)
 
         print('Current config vs. home; difference')
-        np.set_printoptions(suppress=True)
-        print(np.stack([config, self.home_config, diff]))
-        np.set_printoptions(suppress=False)
+        np.set_printoptions(suppress=True, linewidth=90)
+        print(np.array2string(
+            np.stack([config, self.home_config, diff]), separator=', '))
+        np.set_printoptions(suppress=False, linewidth=75)
         if home_only:
             return
 
         if joints is not None:
             print('Setting to custom config')
             success = self.robot.set_config(joints)
+            config = self._get_current_config()
+            diff = np.subtract(config, joints)
+
+            print('Current config vs. target; difference')
+            np.set_printoptions(suppress=True, linewidth=90)
+            print(np.array2string(
+                np.stack([config, joints, diff]), separator=', '))
+            np.set_printoptions(suppress=False, linewidth=75)
         else:
             if gripper_pos is None:
                 gripper_pos = self.sample_random_gripper_pos()

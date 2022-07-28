@@ -15,8 +15,7 @@ from sensor_msgs.msg import Joy
 
 
 PUSHING_START_CONFIG = [
-        # -1.544117350934758, -1.545942555282938, -1.54736573102487, 0.0038076134003528495, 1.5741106580621542, -0.785054080293274]
-        -1.5441173508237669, -1.545942555468562, -1.5473657321322474, 0.0038076130413733367, 1.5741106582089337, -0.7850540802395001
+        0.9326981650333579, -1.752163298993259, 1.7692008154315744, -1.070960116650423, 2.19026060548725, 2.3614391975469964
 ]
 
 
@@ -29,20 +28,28 @@ class Dataset:
             os.makedirs(os.path.dirname(self.path))
 
     def reset(self, obs):
-        if self.episodes:
-            for k in self.episodes[-1]:
-                self.episodes[-1][k] = np.array(self.episodes[-1][k])
+        # if self.episodes:
+        #     for k in self.episodes[-1]:
+        #         self.episodes[-1][k] = np.array(self.episodes[-1][k])
+        print('Starting episode', len(self.episodes))
         self.episodes.append({'observations': [obs], 'actions': []})
 
     def append(self, act, next_obs):
         self.episodes[-1]['actions'].append(act)
         self.episodes[-1]['observations'].append(next_obs)
 
+    def discard_episode(self):
+        if self.episodes:
+            self.episodes = self.episodes[:-1]
+            print('Discarded episode', len(self.episodes) + 1)
+        else:
+            print('No episodes to discard')
+
     def save(self):
         episodes = self.episodes
-        if episodes and not episodes[-1]['actions']:
-            # Leave out last empty episode.
-            episodes = episodes[:-1]
+        # if episodes and not episodes[-1]['actions']:
+        #     # Leave out last empty episode.
+        #     episodes = episodes[:-1]
         with open(self.path, 'wb') as f:
             pickle.dump(episodes, f)
 
@@ -52,6 +59,7 @@ def callback(data, env, dataset, x_scale=0.1, y_scale=0.1):
     joy_left = data.axes[0]
     joy_up = data.axes[1]
     done = data.buttons[2]
+    discard = data.buttons[1]
     vx = y_scale * joy_up
     vy = x_scale * joy_left
     action = {
@@ -62,17 +70,22 @@ def callback(data, env, dataset, x_scale=0.1, y_scale=0.1):
     action_2d = [vx, vy]
     print('Sending', action)
     if done:
-        # TODO: Could convert lists to arrays here without appending a new obs.
+        dataset.save()
         print('Finished episode; Resetting arm')
         obs = reset_env(env)
         dataset.reset(obs)
-        dataset.save()
+        print('Reset finished')
+        print('Ready to receive joystick controls')
+    elif discard:
+        dataset.discard_episode()
+        print('Resetting arm')
+        obs = reset_env(env)
+        dataset.reset(obs)
         print('Reset finished')
         print('Ready to receive joystick controls')
     else:
         real_obs = env.step(action)
         dataset.append(action_2d, real_obs)
-
 
 def reset_arm(env):
     if env.arm_name == 'left':
@@ -84,13 +97,21 @@ def reset_arm(env):
     obs = env.reset(gripper_pos=gripper_pos, gripper_orn=gripper_orn)
     return obs
 
+
 def reset_joints(env):
     obs = env.reset(joints=PUSHING_START_CONFIG)
     return obs
 
-def reset_env(env):
+
+def reset_to_home(env):
     obs = env.reset(home_only=True)
     return obs
+
+
+def reset_env(env):
+   obs = reset_joints(env)
+   return obs
+
 
 def main():
     try:
