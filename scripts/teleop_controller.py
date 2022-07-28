@@ -14,6 +14,12 @@ from robotamer.envs.pick import PickEnv
 from sensor_msgs.msg import Joy
 
 
+PUSHING_START_CONFIG = [
+        # -1.544117350934758, -1.545942555282938, -1.54736573102487, 0.0038076134003528495, 1.5741106580621542, -0.785054080293274]
+        -1.5441173508237669, -1.545942555468562, -1.5473657321322474, 0.0038076130413733367, 1.5741106582089337, -0.7850540802395001
+]
+
+
 class Dataset:
 
     def __init__(self, path):
@@ -54,11 +60,11 @@ def callback(data, env, dataset, x_scale=0.1, y_scale=0.1):
         "grip_open": 1,
     }
     action_2d = [vx, vy]
-    # print('Sending', action)
+    print('Sending', action)
     if done:
         # TODO: Could convert lists to arrays here without appending a new obs.
         print('Finished episode; Resetting arm')
-        obs = reset_arm(env)
+        obs = reset_env(env)
         dataset.reset(obs)
         dataset.save()
         print('Reset finished')
@@ -78,19 +84,28 @@ def reset_arm(env):
     obs = env.reset(gripper_pos=gripper_pos, gripper_orn=gripper_orn)
     return obs
 
+def reset_joints(env):
+    obs = env.reset(joints=PUSHING_START_CONFIG)
+    return obs
+
+def reset_env(env):
+    obs = env.reset(home_only=True)
+    return obs
 
 def main():
-    pick_env = gym.make("RealRobot-Pick-v0", cam_list=[], arm='right')
-    real_obs = reset_arm(pick_env)
-
-    timestamp = datetime.now().strftime('%Y-%m-%dT%H-%M-%S')
-    dataset_path = os.path.join(os.environ['TOP_DATA_DIR'],
-                                f'rrlfd/pushing_demos_sim_dev_{timestamp}.pkl')
-    dataset = Dataset(dataset_path)
-    dataset.reset(real_obs)
-    env_step_callback = functools.partial(
-        callback, env=pick_env, dataset=dataset, x_scale=0.05, y_scale=0.05)
     try:
+        pick_env = gym.make("RealRobot-Pick-v0", cam_list=[], arm='right')
+        real_obs = reset_env(pick_env)
+        # real_obs = reset_arm(pick_env)
+        # real_obs = reset_joints(pick_env)
+
+        timestamp = datetime.now().strftime('%Y-%m-%dT%H-%M-%S')
+        dataset_path = os.path.join(os.environ['TOP_DATA_DIR'],
+                                    f'rrlfd/pushing_demos_sim_dev_{timestamp}.pkl')
+        dataset = Dataset(dataset_path)
+        dataset.reset(real_obs)
+        env_step_callback = functools.partial(
+            callback, env=pick_env, dataset=dataset, x_scale=0.05, y_scale=0.05)
         rospy.Subscriber('joy_teleop', Joy, env_step_callback, queue_size=1)
         print('Ready to receive joystick controls')
 

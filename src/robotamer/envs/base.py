@@ -42,14 +42,18 @@ DEFAULT_CONF = {
     #     -2.2863813201125716,
     #     -2.670353755551324,
     # ]
-    [
-        1.2915436464758039,
-        -1.6929693744344996,
-        1.5533430342749532,
-        -1.1344640137963142,
-        2.303834612632515,
-        -1.064650843716541,
-    ],
+    # [
+    #     1.2915436464758039,
+    #     -1.6929693744344996,
+    #     1.5533430342749532,
+    #     -1.1344640137963142,
+    #     2.303834612632515,
+    #     -1.064650843716541,
+    # ],
+    # Pushing start position.
+    [0.9326989669308903, -1.752094800707198, 1.7692552040365719, -1.070880584564021, 2.1902111646944924, 2.3613882129912653]
+    # [-1.544117350934758, -1.545942555282938, -1.54736573102487, 0.0038076134003528495, 1.5741106580621542, -0.785054080293274],
+    # [
 }
 
 
@@ -100,15 +104,47 @@ class BaseEnv(gym.Env):
         )
         return position
 
-    def _reset(self, gripper_pos=None, gripper_orn=None, open_gripper=True, **kwargs):
-        self.robot.set_config(self.home_config)
-        if gripper_pos is None:
-            gripper_pos = self.sample_random_gripper_pos()
+    def _get_current_config(self):
+        variables = self.robot.commander.get_current_variable_values()
+        config_joints = [f'{self.arm_name}_{k}' for k in [
+            'shoulder_pan_joint',
+            'shoulder_lift_joint',
+            'elbow_joint',
+            'wrist_1_joint',
+            'wrist_2_joint',
+            'wrist_3_joint']]
+        config = [variables[k] for k in config_joints]
+        return config
 
-        if gripper_orn is None:
-            gripper_orn = [pi, 0, pi / 2]
+    def _reset(self, gripper_pos=None, gripper_orn=None, open_gripper=True, joints=None, home_only=False, **kwargs):
+        print('Returning to home config')
+        success = self.robot.set_config(self.home_config)
+        if success:
+            print('Done')
+        else:
+            print('Failed to return')
+        config = self._get_current_config()
+        diff = np.subtract(config, self.home_config)
 
-        success = self.robot.go_to_pose(gripper_pos, gripper_orn, cartesian=True)
+        print('Current config vs. home; difference')
+        np.set_printoptions(suppress=True)
+        print(np.stack([config, self.home_config, diff]))
+        np.set_printoptions(suppress=False)
+        if home_only:
+            return
+
+        if joints is not None:
+            print('Setting to custom config')
+            success = self.robot.set_config(joints)
+        else:
+            if gripper_pos is None:
+                gripper_pos = self.sample_random_gripper_pos()
+
+            if gripper_orn is None:
+                gripper_orn = [pi, 0, pi / 2]
+
+            print('Moving to cartesian pose', gripper_pos, gripper_orn)
+            success = self.robot.go_to_pose(gripper_pos, gripper_orn, cartesian=True)
 
         if not success:
             print("Moving the robot to default position failed")
