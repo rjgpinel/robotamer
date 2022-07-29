@@ -15,7 +15,8 @@ from sensor_msgs.msg import Joy
 
 
 PUSHING_START_CONFIG = [
-        0.9326981650333579, -1.752163298993259, 1.7692008154315744, -1.070960116650423, 2.19026060548725, 2.3614391975469964
+        # 0.9326981650333579, -1.752163298993259, 1.7692008154315744, -1.070960116650423, 2.19026060548725, 2.3614391975469964
+        0.9326981650333579, -1.752163298993259, 1.7692008154315744, -1.070960116650423, 2.19026060548725, 0
 ]
 
 
@@ -31,7 +32,7 @@ class Dataset:
         # if self.episodes:
         #     for k in self.episodes[-1]:
         #         self.episodes[-1][k] = np.array(self.episodes[-1][k])
-        print('Starting episode', len(self.episodes))
+        print('Starting episode', len(self.episodes) + 1)
         self.episodes.append({'observations': [obs], 'actions': []})
 
     def append(self, act, next_obs):
@@ -119,6 +120,15 @@ def main():
         real_obs = reset_env(pick_env)
         # real_obs = reset_arm(pick_env)
         # real_obs = reset_joints(pick_env)
+        # print('pose before:', pick_env.robot.eef_pose())
+        # for _ in range(4):
+        #     action = {
+        #         'linear_velocity': np.array([1, 0, 0]),
+        #         'angular_velocity': np.array([0, 0, 0]),
+        #         'grip_open': 1
+        #     }
+        #     pick_env.step(action)
+        # print('pose after:', pick_env.robot.eef_pose())
 
         timestamp = datetime.now().strftime('%Y-%m-%dT%H-%M-%S')
         dataset_path = os.path.join(os.environ['TOP_DATA_DIR'],

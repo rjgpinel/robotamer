@@ -2,8 +2,8 @@ import numpy as np
 
 
 # Speed integration period
-REAL_DT = 0.1
-SIM_DT = 0.1
+REAL_DT = 0.2
+SIM_DT = 0.2
 
 # Cameras configuration
 BRAVO_INFO = {
