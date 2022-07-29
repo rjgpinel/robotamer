@@ -146,12 +146,14 @@ class BaseEnv(gym.Env):
             print(np.array2string(
                 np.stack([config, joints, diff]), separator=', '))
             np.set_printoptions(suppress=False, linewidth=75)
-        else:
+        if gripper_pos is not None or gripper_orn is not None:
             if gripper_pos is None:
-                gripper_pos = self.sample_random_gripper_pos()
+                gripper_pos = self.robot.eef_pose()[0]
+                # gripper_pos = self.sample_random_gripper_pos()
 
             if gripper_orn is None:
-                gripper_orn = [pi, 0, pi / 2]
+                gripper_orn = self.robot.eef_pose()[1]
+                # gripper_orn = [pi, 0, pi / 2]
 
             print('Moving to cartesian pose', gripper_pos, gripper_orn)
             success = self.robot.go_to_pose(gripper_pos, gripper_orn, cartesian=True)

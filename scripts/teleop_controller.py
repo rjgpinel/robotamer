@@ -109,8 +109,13 @@ def reset_to_home(env):
     return obs
 
 
+def reset_joints_and_eef(env):
+    obs = env.reset(joints=PUSHING_START_CONFIG, gripper_pos=[0.4, 0, 0.04])
+    return obs
+
+
 def reset_env(env):
-   obs = reset_joints(env)
+   obs = reset_joints_and_eef(env)
    return obs
 
 
@@ -118,6 +123,11 @@ def main():
     try:
         pick_env = gym.make("RealRobot-Pick-v0", cam_list=[], arm='right')
         real_obs = reset_env(pick_env)
+        # pose = pick_env.robot.eef_pose()
+        # print('pose before:', pose)
+        # import pdb; pdb.set_trace()
+        # obs = pick_env.reset(gripper_pos=[0.4, 0., 0.025], gripper_orn=[pi, 0, 0])
+        # reset_arm(pick_env)
         # real_obs = reset_arm(pick_env)
         # real_obs = reset_joints(pick_env)
         # print('pose before:', pick_env.robot.eef_pose())
