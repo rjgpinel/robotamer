@@ -15,13 +15,7 @@ from sensor_msgs.msg import Joy
 
 
 PUSHING_START_CONFIG = [
-        # 0.9326981650333579, -1.752163298993259, 1.7692008154315744, -1.070960116650423, 2.19026060548725, 2.3614391975469964
-        # 0.9326981650333579, -1.752163298993259, 1.7692008154315744, -1.070960116650423, 2.19026060548725, 0
-        # 3.8cm from the table (z = 0.05 in command space)
-        # 0.8726706768437351, -1.6906466333371597, 1.636904689457615, -1.0095888375470192, 2.1850710910097035, 0
-        # 3.8cm from the table (z = 0.05 in command space)
-        # 0.8849127317995276, -1.668861578637351, 1.631950419976694, -1.0844151260136474, 2.2167711025394112, -0.07978964167831126
-        # From the real robot
+        # Obtained from the real robot, 4cm from the table.
         0.8707625865936279, -1.7185638586627405, 1.6314215660095215, -0.9090965429889124, 2.146097183227539, 0.8783294558525085
 ]
 
@@ -35,9 +29,6 @@ class Dataset:
             os.makedirs(os.path.dirname(self.path))
 
     def reset(self, obs):
-        # if self.episodes:
-        #     for k in self.episodes[-1]:
-        #         self.episodes[-1][k] = np.array(self.episodes[-1][k])
         print('Starting episode', len(self.episodes) + 1)
         self.episodes.append({'observations': [obs], 'actions': []})
 
@@ -53,12 +44,8 @@ class Dataset:
             print('No episodes to discard')
 
     def save(self):
-        episodes = self.episodes
-        # if episodes and not episodes[-1]['actions']:
-        #     # Leave out last empty episode.
-        #     episodes = episodes[:-1]
         with open(self.path, 'wb') as f:
-            pickle.dump(episodes, f)
+            pickle.dump(self.episodes, f)
 
 
 def callback(data, env, dataset, x_scale=0.1, y_scale=0.1):
@@ -94,6 +81,19 @@ def callback(data, env, dataset, x_scale=0.1, y_scale=0.1):
     else:
         real_obs = env.step(action)
         dataset.append(action_2d, real_obs)
+
+
+def test_displacement(env):
+    print('pose before:', env.robot.eef_pose())
+    for _ in range(4):
+        action = {
+            'linear_velocity': np.array([1, 0, 0]),
+            'angular_velocity': np.array([0, 0, 0]),
+            'grip_open': 1
+        }
+        env.step(action)
+    print('pose after:', env.robot.eef_pose())
+
 
 def reset_arm(env):
     if env.arm_name == 'left':
@@ -133,38 +133,10 @@ def reset_env(env):
 def main():
     try:
         env = gym.make("RealRobot-Pick-v0", cam_list=[], arm='right')
-        # real_obs = reset_to_home(env)
-        # pose = env.robot.eef_pose()
-        # print('Original home pose', pose) 
-        # import pdb; pdb.set_trace()
-
-        # new_pos = pose[0]
-        # new_pos[2] = 0.04  # 0.05
-        # env.reset(gripper_pos=new_pos)
-        # print('Home pose (z = 0.04)', env.robot.eef_pose())
-        # import pdb; pdb.set_trace()
 
         real_obs = reset_env(env)
         print('Cartesian pose', env.robot.eef_pose())
         print('Config', env.env._get_current_config())
-        # import pdb; pdb.set_trace()
-        # import pdb; pdb.set_trace()
-        # pose = env.robot.eef_pose()
-        # print('pose before:', pose)
-        # import pdb; pdb.set_trace()
-        # obs = env.reset(gripper_pos=[0.4, 0., 0.025], gripper_orn=[pi, 0, 0])
-        # reset_arm(env)
-        # real_obs = reset_arm(env)
-        # real_obs = reset_joints(env)
-        # print('pose before:', env.robot.eef_pose())
-        # for _ in range(4):
-        #     action = {
-        #         'linear_velocity': np.array([1, 0, 0]),
-        #         'angular_velocity': np.array([0, 0, 0]),
-        #         'grip_open': 1
-        #     }
-        #     env.step(action)
-        # print('pose after:', env.robot.eef_pose())
 
         timestamp = datetime.now().strftime('%Y-%m-%dT%H-%M-%S')
         dataset_path = os.path.join(os.environ['TOP_DATA_DIR'],
