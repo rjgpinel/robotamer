@@ -42,19 +42,27 @@ DEFAULT_CONF = {
     #     -2.2863813201125716,
     #     -2.670353755551324,
     # ]
-    [
-        1.2915436464758039,
-        -1.6929693744344996,
-        1.5533430342749532,
-        -1.1344640137963142,
-        2.303834612632515,
-        0  # for cylinder
-        # -1.064650843716541,  # for gripper
-    ],
+    # [
+    #     1.2915436464758039,
+    #     -1.6929693744344996,
+    #     1.5533430342749532,
+    #     -1.1344640137963142,
+    #     2.303834612632515,
+    #     0  # for cylinder
+    #     # -1.064650843716541,  # for gripper
+    # ],
     # Pushing start position.
     # [0.9326989669308903, -1.752094800707198, 1.7692552040365719, -1.070880584564021, 2.1902111646944924, 2.3613882129912653]
     # [-1.544117350934758, -1.545942555282938, -1.54736573102487, 0.0038076134003528495, 1.5741106580621542, -0.785054080293274],
     # [
+    # Home config but closer to the table (3.8 cm)
+    # [1.1493351523207975, -1.647576865706128, 1.347010685090238, -0.9356335880281268, 2.280169707924273, 0]
+    # Home config but closer to the table (3.8 cm) and perpendicular
+    # [1.117010721276371, -1.6406094968746698, 1.3089969389957472, -0.8203047484373349, 2.2689280275926285, 0.0]
+    # Home config but closer to the table (3.8 cm) and perpendicular, attempt 2
+    # [1.0995574287564276, -1.6406094968746698, 1.3089969389957472, -0.8203047484373349, 2.076941809873252, 0.0]
+    # Home config at a height of 4.0cm
+    [1.1697157621383667, -1.6209071318255823, 1.3057317733764648, -0.8799679915057581, 2.284698247909546, 0.5466184616088867]
 }
 
 
@@ -132,6 +140,7 @@ class BaseEnv(gym.Env):
         print(np.array2string(
             np.stack([config, self.home_config, diff]), separator=', '))
         np.set_printoptions(suppress=False, linewidth=75)
+        print('EEF pose', self.robot.eef_pose())
         if home_only:
             return
 
@@ -145,6 +154,7 @@ class BaseEnv(gym.Env):
             np.set_printoptions(suppress=True, linewidth=90)
             print(np.array2string(
                 np.stack([config, joints, diff]), separator=', '))
+            print('EEF pose', self.robot.eef_pose())
             np.set_printoptions(suppress=False, linewidth=75)
         if gripper_pos is not None or gripper_orn is not None:
             if gripper_pos is None:
@@ -152,8 +162,7 @@ class BaseEnv(gym.Env):
                 # gripper_pos = self.sample_random_gripper_pos()
 
             if gripper_orn is None:
-                gripper_orn = self.robot.eef_pose()[1]
-                # gripper_orn = [pi, 0, pi / 2]
+                gripper_orn = [pi, 0, 0]
 
             print('Moving to cartesian pose', gripper_pos, gripper_orn)
             success = self.robot.go_to_pose(gripper_pos, gripper_orn, cartesian=True)
