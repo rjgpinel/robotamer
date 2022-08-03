@@ -76,9 +76,10 @@ class BaseEnv(gym.Env):
         # import pudb; pudb.set_trace()
 
         # Cam info
-        self.cam_info = {
-            f"info_{cam_name}": CAM_INFO[cam_name] for cam_name in cam_list
-        }
+        self.cam_info = {}
+        for cam_name in cam_list:
+            if cam_name in CAM_INFO:
+                self.cam_info[f"info_{cam_name}"] = CAM_INFO[cam_name]
         self._np_random = np.random
 
         self.safe_height = GRIPPER_HEIGHT_INIT[-1]
@@ -215,7 +216,8 @@ class BaseEnv(gym.Env):
                     / 1000
                 )
 
-            obs[f"info_{cam_name}"] = self.cam_info[f"info_{cam_name}"]
+            if f"info_{cam_name}" in self.cam_info:
+                obs[f"info_{cam_name}"] = self.cam_info[f"info_{cam_name}"]
 
         gripper_pose = self.robot.eef_pose()
         obs["gripper_pos"] = np.array(gripper_pose[0])
