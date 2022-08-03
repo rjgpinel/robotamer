@@ -1,5 +1,6 @@
 import functools
 import gym
+import io
 import os
 import pickle
 import rospy
@@ -13,6 +14,7 @@ from datetime import datetime
 from robotamer.envs.pick import PickEnv
 from sensor_msgs.msg import Joy
 
+from PIL import Image
 
 PUSHING_START_CONFIG = [
     # Obtained from the real robot, 4cm from the table.
@@ -28,11 +30,27 @@ class Dataset:
         if not os.path.exists(os.path.dirname(self.path)):
             os.makedirs(os.path.dirname(self.path))
 
+    def compress_image(self, img):
+        pil_img = Image.fromarray(img_obs)
+        img_buf = io.BytesIO()
+        pil_img.save(img_buf, format='PNG')
+        img_bytes = img_buf.getvalue()
+        return img_bytes
+
+    def compress_images(self, obs):
+        obs = copy.deepcopy(obs)
+        for k, v in obs.items():
+            if len(v.shape) == 3:
+                obs[k] = self.compress_image(v)
+        return obs
+
     def reset(self, obs):
         print('Starting episode', len(self.episodes) + 1)
+        obs = self.compress_images(obs)
         self.episodes.append({'observations': [obs], 'actions': []})
 
     def append(self, act, next_obs):
+        next_obs = self.compress_images(next_obs)
         self.episodes[-1]['actions'].append(act)
         self.episodes[-1]['observations'].append(next_obs)
 
@@ -142,9 +160,9 @@ def reset_env(env):
 def main():
     try:
         # On the real robot:
-        env = gym.make("RealRobot-Pick-v0", cam_list=["left_camera", "spare_camera"], arm='right', depth=False)
+        env = gym.make("RealRobot-Push-v0", cam_list=["left_camera", "spare_camera"], arm='right', depth=False)
         # In simulation:
-        # env = gym.make("RealRobot-Pick-v0", cam_list=[], arm='right', depth=False)
+        # env = gym.make("RealRobot-Push-v0", cam_list=[], arm='right', depth=False)
 
         real_obs = reset_env(env)
         print('Cartesian pose', env.robot.eef_pose())
