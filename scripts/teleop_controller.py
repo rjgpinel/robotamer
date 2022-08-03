@@ -1,3 +1,4 @@
+import copy
 import functools
 import gym
 import io
@@ -30,7 +31,7 @@ class Dataset:
         if not os.path.exists(os.path.dirname(self.path)):
             os.makedirs(os.path.dirname(self.path))
 
-    def compress_image(self, img):
+    def compress_image(self, img_obs):
         pil_img = Image.fromarray(img_obs)
         img_buf = io.BytesIO()
         pil_img.save(img_buf, format='PNG')
@@ -40,17 +41,15 @@ class Dataset:
     def compress_images(self, obs):
         obs = copy.deepcopy(obs)
         for k, v in obs.items():
-            if len(v.shape) == 3:
+            if isinstance(v, np.ndarray) and len(v.shape) == 3:
                 obs[k] = self.compress_image(v)
         return obs
 
     def reset(self, obs):
         print('Starting episode', len(self.episodes) + 1)
-        obs = self.compress_images(obs)
         self.episodes.append({'observations': [obs], 'actions': []})
 
     def append(self, act, next_obs):
-        next_obs = self.compress_images(next_obs)
         self.episodes[-1]['actions'].append(act)
         self.episodes[-1]['observations'].append(next_obs)
 
@@ -61,9 +60,13 @@ class Dataset:
         else:
             print('No episodes to discard')
 
+    def append_action(self, act):
+        self.episodes[-1]['actions'].append(act)
+
     def save(self):
-        with open(self.path, 'wb') as f:
-            pickle.dump(self.episodes, f)
+        with open(self.path, 'ab') as f:
+            pickle.dump(self.episodes[-1], f)
+        print('Finished saving to file')
 
 
 def callback(data, env, dataset, x_scale=0.1, y_scale=0.1):
@@ -83,13 +86,14 @@ def callback(data, env, dataset, x_scale=0.1, y_scale=0.1):
         "angular_velocity": np.array([0.0, 0.0, 0.0]),
         "grip_open": 1,
     }
-    action_2d = [vx, vy]
+    action_2d = np.array([vx, vy])
     print('Sending', action)
     if start:
         obs = env.env.render()
         dataset.reset(obs)
         print('Observation fields', obs.keys())
     if done:
+        dataset.append_action(np.array([0., 0.]))
         dataset.save()
         print('Finished episode; Resetting arm')
         obs = reset_env(env)
@@ -106,7 +110,7 @@ def callback(data, env, dataset, x_scale=0.1, y_scale=0.1):
         print('Reset finished')
         print('Ready to receive joystick controls')
     else:
-        real_obs = env.step(action)
+        real_obs, done, reward, info = env.step(action)
         dataset.append(action_2d, real_obs)
 
 
@@ -160,9 +164,9 @@ def reset_env(env):
 def main():
     try:
         # On the real robot:
-        env = gym.make("RealRobot-Push-v0", cam_list=["left_camera", "spare_camera"], arm='right', depth=False)
+        env = gym.make("RealRobot-Pick-v0", cam_list=["left_camera", "spare_camera"], arm='right', depth=False)
         # In simulation:
-        # env = gym.make("RealRobot-Push-v0", cam_list=[], arm='right', depth=False)
+        # env = gym.make("RealRobot-Pick-v0", cam_list=[], arm='right', depth=False)
 
         real_obs = reset_env(env)
         print('Cartesian pose', env.robot.eef_pose())
