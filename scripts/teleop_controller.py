@@ -53,8 +53,11 @@ def callback(data, env, dataset, x_scale=0.1, y_scale=0.1):
     print('eef', env.robot.eef_pose()[0])
     joy_left = data.axes[0]
     joy_up = data.axes[1]
-    done = data.buttons[2]
-    discard = data.buttons[1]
+
+    start = data.buttons[0]  # A
+    discard = data.buttons[1]  # B
+    done = data.buttons[2]  # X
+
     vx = y_scale * joy_up
     vy = x_scale * joy_left
     action = {
@@ -64,18 +67,24 @@ def callback(data, env, dataset, x_scale=0.1, y_scale=0.1):
     }
     action_2d = [vx, vy]
     print('Sending', action)
+    if start:
+        obs = env.env.render()
+        dataset.reset(obs)
+        print('Observation fields', obs.keys())
     if done:
         dataset.save()
         print('Finished episode; Resetting arm')
         obs = reset_env(env)
-        dataset.reset(obs)
+        print('Observation fields', obs.keys())
+        # dataset.reset(obs)
         print('Reset finished')
         print('Ready to receive joystick controls')
     elif discard:
         dataset.discard_episode()
         print('Resetting arm')
         obs = reset_env(env)
-        dataset.reset(obs)
+        print('Observation fields', obs.keys())
+        # dataset.reset(obs)
         print('Reset finished')
         print('Ready to receive joystick controls')
     else:
@@ -132,7 +141,10 @@ def reset_env(env):
 
 def main():
     try:
-        env = gym.make("RealRobot-Pick-v0", cam_list=[], arm='right')
+        # On the real robot:
+        env = gym.make("RealRobot-Pick-v0", cam_list=["left_camera", "spare_camera"], arm='right', depth=False)
+        # In simulation:
+        # env = gym.make("RealRobot-Pick-v0", cam_list=[], arm='right', depth=False)
 
         real_obs = reset_env(env)
         print('Cartesian pose', env.robot.eef_pose())
@@ -142,11 +154,12 @@ def main():
         dataset_path = os.path.join(os.environ['TOP_DATA_DIR'],
                                     f'rrlfd/pushing_demos_sim_dev_{timestamp}.pkl')
         dataset = Dataset(dataset_path)
-        dataset.reset(real_obs)
+        # dataset.reset(real_obs)
         env_step_callback = functools.partial(
             callback, env=env, dataset=dataset, x_scale=0.05, y_scale=0.05)
         rospy.Subscriber('joy_teleop', Joy, env_step_callback, queue_size=1)
         print('Ready to receive joystick controls')
+        print('Observation fields', real_obs.keys())
 
         rospy.spin()
     except rospy.ROSInterruptException:
