@@ -1,3 +1,4 @@
+import numpy as np
 from gym.envs.registration import register
 
 envs = [
@@ -42,6 +43,24 @@ envs = [
         entry_point="robotamer.envs.sweep:SweepEnv",
         max_episode_steps=1000,
         reward_threshold=1.0,
+    ),
+    dict(
+        id="RealRobot-Cylinder-Push-v0",
+        entry_point="robotamer.envs.cylinder_push:PushEnv",
+        max_episode_steps=600,
+        reward_threshold=1.0,
+        kwargs={
+            "version": "v0",
+        },
+    ),
+    dict(
+        id="RealRobot-Cylinder-Push-v1",
+        entry_point="robotamer.envs.cylinder_push:PushEnv",
+        max_episode_steps=600,
+        reward_threshold=1.0,
+        kwargs={
+            "version": "v1",
+        },
     ),
 ]
 

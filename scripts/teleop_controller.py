@@ -11,13 +11,14 @@ from absl import flags
 from robotamer.envs.pick import PickEnv
 from robotamer.core import datasets
 from robotamer.core import utils
-from robotamer.core.pushing_utils import reset_env
 from sensor_msgs.msg import Joy
 
 
 flags.DEFINE_bool('sim', False,
                   'If true (running in simulation), use proprioceptive '
                   'observations only. Else initialize cameras.')
+flags.DEFINE_enum('task_version', 'v1', ['v0', 'v1'],
+                  'Which version of the task to use.')
 FLAGS = flags.FLAGS
 
 
@@ -48,7 +49,7 @@ def callback(data, env, dataset, x_scale=0.1, y_scale=0.1):
         dataset.append_action(np.array([0., 0.]))
         dataset.save()
         print('Finished episode; Resetting arm')
-        obs = reset_env(env)
+        obs = env.reset()
         print('Observation fields', obs.keys())
         # dataset.reset(obs)
         print('Reset finished')
@@ -56,7 +57,7 @@ def callback(data, env, dataset, x_scale=0.1, y_scale=0.1):
     elif discard:
         dataset.discard_episode()
         print('Resetting arm')
-        obs = reset_env(env)
+        obs = env.reset()
         print('Observation fields', obs.keys())
         # dataset.reset(obs)
         print('Reset finished')
@@ -81,18 +82,22 @@ def test_displacement(env):
 def main(_):
     try:
         cam_list = [] if FLAGS.sim else ['left_camera', 'spare_camera']
-        env = gym.make('RealRobot-Pick-v0',
+        env = gym.make(f'RealRobot-Cylinder-Push-{FLAGS.task_version}',
                        cam_list=cam_list,
                        arm='right',
+                       version=FLAGS.task_version,
                        depth=False)
 
-        real_obs = reset_env(env)
+        real_obs = env.reset()
         print('Cartesian pose', env.robot.eef_pose())
         print('Config', env.env._get_current_config())
 
         timestamp = utils.get_timestamp()
-        dataset_path = os.path.join(os.environ['TOP_DATA_DIR'],
-                                    f'rrlfd/pushing_demos_sim_dev_{timestamp}.pkl')
+        dataset_type = 'sim_' if FLAGS.sim else ''
+        dataset_path = os.path.join(
+            os.environ['TOP_DATA_DIR'],
+             f'rrlfd/pushing_demos_{FLAGS.task_version}_{dataset_type}'
+             f'{timestamp}.pkl')
         dataset = datasets.EpisodeDataset(dataset_path)
 
         env_step_callback = functools.partial(

@@ -16,12 +16,13 @@ from robotamer.core.constants import (
     ROBOT_BASE_FRAME,
     EEF_STEPS,
     JUMP_THRESHOLD,
+    WORKSPACE,
 )
 
-WORKSPACE = {
-    "left": np.array([[-0.695, -0.175, 0.00], [-0.295, 0.175, 0.2]]),
-    "right": np.array([[0.295, -0.16, 0.00], [0.695, 0.175, 0.2]]),
-}
+# WORKSPACE = {
+#     "left": np.array([[-0.695, -0.175, 0.00], [-0.295, 0.175, 0.2]]),
+#     "right": np.array([[0.295, -0.16, 0.00], [0.695, 0.175, 0.2]]),
+# }
 
 GRIPPER_HEIGHT_INIT = np.array([0.06, 0.10])
 
@@ -53,11 +54,13 @@ class BaseEnv(gym.Env):
         depth=False,
         cam_info=None,
         arm="left",
+        version="v0",
     ):
         rospy.init_node("env_node", log_level=rospy.INFO)
 
         # Workspace definition
-        self.workspace = WORKSPACE[arm]
+        self.version = version
+        self.workspace = WORKSPACE[arm][version]
         self.gripper_workspace = self.workspace.copy()
         self.gripper_workspace[:, 2] = GRIPPER_HEIGHT_INIT
 
