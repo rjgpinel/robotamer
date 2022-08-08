@@ -85,6 +85,7 @@ class BaseEnv(gym.Env):
                 self.cam_info[f"info_{cam_name}"] = CAM_INFO[cam_name]
         self._np_random = np.random
 
+        self.neutral_gripper_orn = [pi, 0, 0] if arm == 'right' else [pi, 0, pi / 2]
         self.safe_height = GRIPPER_HEIGHT_INIT[-1]
 
     def seed(self, seed):
@@ -146,7 +147,7 @@ class BaseEnv(gym.Env):
                 # gripper_pos = self.sample_random_gripper_pos()
 
             if gripper_orn is None:
-                gripper_orn = [pi, 0, 0]
+                gripper_orn = self.neutral_gripper_orn
 
             print('Moving to cartesian pose', gripper_pos, gripper_orn)
             success = self.robot.go_to_pose(gripper_pos, gripper_orn, cartesian=True)

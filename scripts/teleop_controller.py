@@ -17,7 +17,9 @@ from sensor_msgs.msg import Joy
 flags.DEFINE_bool('sim', False,
                   'If true (running in simulation), use proprioceptive '
                   'observations only. Else initialize cameras.')
-flags.DEFINE_enum('task_version', 'v1', ['v0', 'v1'],
+flags.DEFINE_enum('arm', 'left', ['left', 'right'],
+                  'Which arm to use.')
+flags.DEFINE_enum('task_version', 'v0', ['v0', 'v1'],
                   'Which version of the task to use.')
 FLAGS = flags.FLAGS
 
@@ -37,7 +39,6 @@ def callback(data, env, dataset, x_scale=0.1, y_scale=0.1):
     action = {
         'linear_velocity': np.array([vx, vy, 0.0]),
         'angular_velocity': np.array([0.0, 0.0, 0.0]),
-        'grip_open': 1,
     }
     action_2d = np.array([vx, vy])
     print('Sending', action)
@@ -73,7 +74,6 @@ def test_displacement(env):
         action = {
             'linear_velocity': np.array([1, 0, 0]),
             'angular_velocity': np.array([0, 0, 0]),
-            'grip_open': 1
         }
         env.step(action)
     print('pose after:', env.robot.eef_pose())
@@ -84,7 +84,7 @@ def main(_):
         cam_list = [] if FLAGS.sim else ['left_camera', 'spare_camera']
         env = gym.make(f'RealRobot-Cylinder-Push-{FLAGS.task_version}',
                        cam_list=cam_list,
-                       arm='right',
+                       arm=FLAGS.arm,
                        version=FLAGS.task_version,
                        depth=False)
 
