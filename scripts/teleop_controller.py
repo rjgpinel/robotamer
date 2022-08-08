@@ -1,72 +1,24 @@
-import copy
 import functools
 import gym
-import io
 import os
-import pickle
 import rospy
-import time
 import robotamer.envs
 
 import numpy as np
-from math import pi
-from datetime import datetime
+from absl import app
+from absl import flags
 
 from robotamer.envs.pick import PickEnv
+from robotamer.core import datasets
+from robotamer.core import utils
+from robotamer.core.pushing_utils import reset_env
 from sensor_msgs.msg import Joy
 
-from PIL import Image
 
-PUSHING_START_CONFIG = [
-    # Obtained from the real robot, 4cm from the table.
-    0.8707625865936279, -1.7185638586627405, 1.6314215660095215, -0.9090965429889124, 2.146097183227539, 0.8783294558525085
-]
-
-
-class Dataset:
-
-    def __init__(self, path):
-        self.path = path
-        self.episodes = []
-        if not os.path.exists(os.path.dirname(self.path)):
-            os.makedirs(os.path.dirname(self.path))
-
-    def compress_image(self, img_obs):
-        pil_img = Image.fromarray(img_obs)
-        img_buf = io.BytesIO()
-        pil_img.save(img_buf, format='PNG')
-        img_bytes = img_buf.getvalue()
-        return img_bytes
-
-    def compress_images(self, obs):
-        obs = copy.deepcopy(obs)
-        for k, v in obs.items():
-            if isinstance(v, np.ndarray) and len(v.shape) == 3:
-                obs[k] = self.compress_image(v)
-        return obs
-
-    def reset(self, obs):
-        print('Starting episode', len(self.episodes) + 1)
-        self.episodes.append({'observations': [obs], 'actions': []})
-
-    def append(self, act, next_obs):
-        self.episodes[-1]['actions'].append(act)
-        self.episodes[-1]['observations'].append(next_obs)
-
-    def discard_episode(self):
-        if self.episodes:
-            self.episodes = self.episodes[:-1]
-            print('Discarded episode', len(self.episodes) + 1)
-        else:
-            print('No episodes to discard')
-
-    def append_action(self, act):
-        self.episodes[-1]['actions'].append(act)
-
-    def save(self):
-        with open(self.path, 'ab') as f:
-            pickle.dump(self.episodes[-1], f)
-        print('Finished saving to file')
+flags.DEFINE_bool('sim', False,
+                  'If true (running in simulation), use proprioceptive '
+                  'observations only. Else initialize cameras.')
+FLAGS = flags.FLAGS
 
 
 def callback(data, env, dataset, x_scale=0.1, y_scale=0.1):
@@ -82,9 +34,9 @@ def callback(data, env, dataset, x_scale=0.1, y_scale=0.1):
     vx = y_scale * joy_up
     vy = x_scale * joy_left
     action = {
-        "linear_velocity": np.array([vx, vy, 0.0]),
-        "angular_velocity": np.array([0.0, 0.0, 0.0]),
-        "grip_open": 1,
+        'linear_velocity': np.array([vx, vy, 0.0]),
+        'angular_velocity': np.array([0.0, 0.0, 0.0]),
+        'grip_open': 1,
     }
     action_2d = np.array([vx, vy])
     print('Sending', action)
@@ -126,57 +78,23 @@ def test_displacement(env):
     print('pose after:', env.robot.eef_pose())
 
 
-def reset_arm(env):
-    if env.arm_name == 'left':
-        gripper_pos = [-0.40, 0, 0.1]
-        gripper_orn = [pi, 0, pi / 2]
-    else:
-        gripper_pos = [0.40, 0, 0.1]
-        gripper_orn = [pi, 0, -pi / 2]
-    obs = env.reset(gripper_pos=gripper_pos, gripper_orn=gripper_orn)
-    return obs
-
-
-def reset_joints(env):
-    obs = env.reset(joints=PUSHING_START_CONFIG)
-    return obs
-
-
-def reset_to_home(env):
-    obs = env.reset(home_only=True)
-    return obs
-
-
-def reset_joints_and_eef(env):
-    obs = env.reset(joints=PUSHING_START_CONFIG, gripper_pos=[0.4, 0, 0.04])
-    return obs
-
-
-def reset_eef(env):
-    obs = env.reset(gripper_pos=[0.4, 0, 0.04])
-
-
-def reset_env(env):
-   obs = reset_joints(env)
-   return obs
-
-
-def main():
+def main(_):
     try:
-        # On the real robot:
-        env = gym.make("RealRobot-Pick-v0", cam_list=["left_camera", "spare_camera"], arm='right', depth=False)
-        # In simulation:
-        # env = gym.make("RealRobot-Pick-v0", cam_list=[], arm='right', depth=False)
+        cam_list = [] if FLAGS.sim else ['left_camera', 'spare_camera']
+        env = gym.make('RealRobot-Pick-v0',
+                       cam_list=cam_list,
+                       arm='right',
+                       depth=False)
 
         real_obs = reset_env(env)
         print('Cartesian pose', env.robot.eef_pose())
         print('Config', env.env._get_current_config())
 
-        timestamp = datetime.now().strftime('%Y-%m-%dT%H-%M-%S')
+        timestamp = utils.get_timestamp()
         dataset_path = os.path.join(os.environ['TOP_DATA_DIR'],
                                     f'rrlfd/pushing_demos_sim_dev_{timestamp}.pkl')
-        dataset = Dataset(dataset_path)
-        # dataset.reset(real_obs)
+        dataset = datasets.EpisodeDataset(dataset_path)
+
         env_step_callback = functools.partial(
             callback, env=env, dataset=dataset, x_scale=0.05, y_scale=0.05)
         rospy.Subscriber('joy_teleop', Joy, env_step_callback, queue_size=1)
@@ -185,10 +103,10 @@ def main():
 
         rospy.spin()
     except rospy.ROSInterruptException:
-        dataset.save()
+        print('Exiting')
 
 
-if __name__ == "__main__":
-    main()
+if __name__ == '__main__':
+    app.run(main)
 
 

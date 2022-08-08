@@ -1,7 +1,12 @@
 import pinocchio as pin
 import numpy as np
 
+from datetime import datetime
 from PIL import Image
+
+
+def get_timestamp():
+    return datetime.now().strftime('%Y-%m-%dT%H-%M-%S')
 
 
 def blend(im_a, im_b, alpha):
