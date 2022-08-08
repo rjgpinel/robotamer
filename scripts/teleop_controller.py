@@ -24,7 +24,7 @@ flags.DEFINE_enum('task_version', 'v0', ['v0', 'v1'],
 FLAGS = flags.FLAGS
 
 
-def callback(data, env, dataset, x_scale=0.1, y_scale=0.1):
+def teleop_callback(data, env, dataset, x_scale=0.1, y_scale=0.1):
     print('Received', data)
     print('eef', env.robot.eef_pose()[0])
     joy_left = data.axes[0]
@@ -81,7 +81,12 @@ def test_displacement(env):
 
 def main(_):
     try:
-        cam_list = [] if FLAGS.sim else ['left_camera', 'spare_camera']
+        if FLAGS.sim:
+            cam_list = []
+        elif FLAGS.arm == 'right':
+            cam_list = ['left_camera', 'spare_camera']
+        else:
+            cam_list = ['bravo_camera', 'charlie_camera']
         env = gym.make(f'RealRobot-Cylinder-Push-{FLAGS.task_version}',
                        cam_list=cam_list,
                        arm=FLAGS.arm,
@@ -100,8 +105,13 @@ def main(_):
              f'{timestamp}.pkl')
         dataset = datasets.EpisodeDataset(dataset_path)
 
+        if FLAGS.arm == 'right':
+            x_scale = y_scale = 0.05
+        else:
+            x_scale = y_scale = -0.05
         env_step_callback = functools.partial(
-            callback, env=env, dataset=dataset, x_scale=0.05, y_scale=0.05)
+            teleop_callback, env=env, dataset=dataset, x_scale=x_scale,
+            y_scale=y_scale)
         rospy.Subscriber('joy_teleop', Joy, env_step_callback, queue_size=1)
         print('Ready to receive joystick controls')
         print('Observation fields', real_obs.keys())

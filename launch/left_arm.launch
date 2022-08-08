@@ -10,8 +10,10 @@
     <arg name="velocity_control" value="false"/>
     <arg name="sensors" value="true"/>
     <arg name="enable_left_camera" value="false"/>
-    <arg name="enable_right_camera" value="true"/>
+    <arg name="enable_right_camera" value="false"/>
+    <arg name="enable_spare_camera" value="false"/>
     <arg name="enable_bravo_camera" value="true"/>
+    <arg name="enable_charlie_camera" value="true"/>
   </include>
 
   <node pkg="joy" type="joy_node" name="joy_node">
