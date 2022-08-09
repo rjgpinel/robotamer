@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from collections import deque
+from geometry_msgs.msg import Vector3
 from math import pi
 from gym.utils import seeding
 from prl_ur5_demos.utils import make_pose
@@ -96,6 +97,11 @@ class BaseEnv(gym.Env):
 
         self.neutral_gripper_orn = [pi, 0, 0] if arm == 'right' else [pi, 0, pi / 2]
         self.safe_height = GRIPPER_HEIGHT_INIT[-1]
+
+        # Subsribe to eef velocity.
+        self.velocity_subscriber = rospy.Subscriber(
+            f'{arm}_eef_velocity', Vector3, self.get_eef_velocity, queue_size=1)
+        self.eef_velocity = None
 
     def seed(self, seed):
         np_random, seed = seeding.np_random(seed)
@@ -213,6 +219,9 @@ class BaseEnv(gym.Env):
             {"success": success, "failure_message": msg},
         )
 
+    def get_eef_velocity(self, vel):
+        self.eef_velocity = np.array([vel.x, vel.y, vel.z])
+
     def render(self):
         obs = {}
 
@@ -235,6 +244,7 @@ class BaseEnv(gym.Env):
         gripper_pose = self.robot.eef_pose()
         obs["gripper_pos"] = np.array(gripper_pose[0])
         obs["gripper_quat"] = np.array(gripper_pose[1])
+        obs["gripper_trans_velocity"] = np.array(self.eef_velocity)
         obs["grip_velocity"] = self.robot._grip_velocity
         obs["gripper_state"] = self.robot._grasped
 
