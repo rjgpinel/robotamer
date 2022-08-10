@@ -201,34 +201,44 @@ def predict_actions(env, eval_dataset, obs_stack, agent, obs_dataset=None):
     obs_stack.append(obs)
 
 
-def end_episode(teleop, env, dataset, obs_stack, agent, obs_dataset=None):
-    if teleop.buttons[1] or teleop.buttons[2]:  # B, X
+def teleop_callback(teleop, env, dataset, obs_stack, agent, obs_dataset=None):
+    if teleop.buttons[0]:  # A
+        env.is_ready = True
+        if obs_dataset is None:
+            obs = env.env.render()
+        else:
+            obs = obs_dataset.reset()
+        dataset.reset(obs)
+        obs_stack.reset(obs)
+        print('Starting the episode')
+    elif teleop.buttons[1] or teleop.buttons[2]:  # B, X
         env.is_ready = False
         _ = env.reset()
         dataset.flag_success(teleop.buttons[2])
         dataset.save()
-        start_episode(env, dataset, obs_stack, agent, obs_dataset)
+        # start_episode(env, dataset, obs_stack, agent, obs_dataset)
 
 
 def start_episode(env, dataset, obs_stack, agent, obs_dataset):
-    teleop = None
     print('Waiting for episode start')
     # Wait to receive a first image after a reset.
-    while teleop is None or not teleop.buttons[0]:  # A
-        print('Waiting for teleop')
-        teleop = rospy.wait_for_message('/joy_teleop', Joy, timeout=2)
-        print('Received teleop', teleop)
-    env.is_ready = True
-    print('Env is ready')
-    if obs_dataset is None:
-        obs = env.env.render()
-    else:
-        obs = obs_dataset.reset()
-    dataset.reset(obs)
-    obs_stack.reset(obs)
-    print('Starting the episode')
-    
     rate = rospy.Rate(5)
+    while not env.is_ready:
+        rate.sleep()
+    # while teleop is None or not teleop.buttons[0]:  # A
+    #     print('Waiting for teleop')
+    #     teleop = rospy.wait_for_message('/joy_teleop', Joy, timeout=2)
+    #     print('Received teleop', teleop)
+    # env.is_ready = True
+    # print('Env is ready')
+    # if obs_dataset is None:
+    #     obs = env.env.render()
+    # else:
+    #     obs = obs_dataset.reset()
+    # dataset.reset(obs)
+    # obs_stack.reset(obs)
+    # print('Starting the episode')
+    
     prev_time = time.time()
     while env.is_ready and not rospy.is_shutdown():
         predict_actions(env, dataset, obs_stack, agent, obs_dataset)
@@ -318,6 +328,7 @@ def main(_):
                    arm=FLAGS.arm,
                    version=FLAGS.task_version,
                    depth=False)
+    env.is_ready = False
 
     agent, obs_stack, demo_dataset, ckpt_dir = load_saved_agent(
         env, main_camera, FLAGS.main_camera_crop, FLAGS.grayscale)
@@ -333,14 +344,14 @@ def main(_):
     # What about passing through target region but not stopping?
     # -> consider it a success, assuming success detection is instantaneous
     # TODO: Make sure to also reset stacked frames
-    end_episode_callback = functools.partial(
-        end_episode, env=env, dataset=eval_dataset, obs_stack=obs_stack,
+    callback = functools.partial(
+        teleop_callback, env=env, dataset=eval_dataset, obs_stack=obs_stack,
         agent=agent, obs_dataset=obs_dataset)
-    rospy.Subscriber('joy_teleop', Joy, end_episode_callback, queue_size=1)
+    rospy.Subscriber('joy_teleop', Joy, callback, queue_size=1)
 
-    start_episode(env, eval_dataset, obs_stack, agent, obs_dataset)
     # prev_time = time.time()
-    # while not rospy.is_shutdown():
+    while not rospy.is_shutdown():
+        start_episode(env, eval_dataset, obs_stack, agent, obs_dataset)
     #   
     #     # Should this node handle the control flow?
     #     # Always publish actions at 5Hz, they will simply be ignored by 
@@ -349,12 +360,15 @@ def main(_):
     #     print('dt =', new_time - prev_time)
     #     prev_time = new_time
     #     rate.sleep()
-    try:
-        # TODO: wrap all the setup above in this block
-        # (clean up and separate into fns)
-        rospy.spin()
-    except rospy.ROSInterruptException:
-        print('Exiting')
+
+    # TODO: remove this line
+    # rospy.spin()
+    # try:
+    #     # TODO: wrap all the setup above in this block
+    #     # (clean up and separate into fns)
+    #     rospy.spin()
+    # except rospy.ROSInterruptException:
+    #     print('Exiting')
   
  
 if __name__ == '__main__':
