@@ -2,7 +2,6 @@ import gym
 import rospy
 
 import numpy as np
-import matplotlib.pyplot as plt
 
 from collections import deque
 from geometry_msgs.msg import Vector3
