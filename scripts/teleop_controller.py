@@ -105,10 +105,7 @@ def main(_):
              f'{timestamp}.pkl')
         dataset = datasets.EpisodeDataset(dataset_path)
 
-        if FLAGS.arm == 'right':
-            x_scale = y_scale = 0.05
-        else:
-            x_scale = y_scale = -0.05
+        x_scale = y_scale = 0.05
         env_step_callback = functools.partial(
             teleop_callback, env=env, dataset=dataset, x_scale=x_scale,
             y_scale=y_scale)
