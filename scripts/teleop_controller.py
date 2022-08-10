@@ -8,7 +8,7 @@ import numpy as np
 from absl import app
 from absl import flags
 
-from robotamer.envs.pick import PickEnv
+# from robotamer.envs.pick import PickEnv
 from robotamer.core import datasets
 from robotamer.core import utils
 from sensor_msgs.msg import Joy
