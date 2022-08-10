@@ -54,3 +54,38 @@ class EpisodeDataset:
 
     def flag_success(self, success):
         self.episodes[-1]['success'] = success
+
+
+class OfflineDataset:
+    """Replaces an env's image observations when testing in sim."""
+
+    def __init__(self, data_path):
+        self.episodes = []
+        with open(data_path, 'rb') as f:
+            while True:
+                try:
+                    self.episodes.append(pickle.load(f))
+                except EOFError:
+                    break
+        self.e = 0
+        self.t = 0
+        self.env = self
+
+    def render(self):
+        return self.step()
+
+    def step(self, unused_action=None):
+        obs = self.episodes[self.e]['observations'][self.t]
+        current_length = len(self.episodes[self.e]['observations'])
+        self.t = (self.t + 1) % current_length
+        return obs
+
+    def reset(self):
+        self.e = (self.e + 1) % len(self.episodes)
+        self.t = 0
+        return self.step()
+
+    @property
+    def action_space(self):
+        return gym.spaces.Box(low=np.array([-0.05, -0.05]),
+                              high=np.array([0.05, 0.05]))
