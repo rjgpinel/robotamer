@@ -1,4 +1,5 @@
-from numpy import pi
+import gym
+import numpy as np
 
 from robotamer.envs.base import BaseEnv
 from robotamer.core import constants 
@@ -17,6 +18,11 @@ class PushEnv(BaseEnv):
             self.start_config = None
         self.start_eef_pos = (
             [0.4, 0, 0.04] if arm == 'right' else [-0.4, 0, 0.06])
+
+    @property
+    def action_space(self):
+        return gym.spaces.Box(low=np.array([-0.05, -0.05]),
+                              high=np.array([0.05, 0.05]))
     
     def reset_joints_and_eef(self):
         obs = self.reset(joints=self.start_config,

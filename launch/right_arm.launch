@@ -21,6 +21,7 @@
 
   <node pkg="robotamer" type="teleop_repeater.py" name="teleop_repeater">
   </node>
+
   <node pkg="robotamer" type="eef_velocity_publisher.py" name="eef_velocity_publisher">
   </node>
 

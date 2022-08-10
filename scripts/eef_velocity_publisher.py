@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 from absl import app
 from absl import flags
 from geometry_msgs.msg import Vector3

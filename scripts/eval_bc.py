@@ -1,3 +1,4 @@
+import copy
 import functools
 import os
 import pickle
@@ -173,26 +174,49 @@ class OfflineDataset:
         self.t = 0
         return self.step()
 
+    @property
+    def action_space(self):
+        return gym.spaces.Box(low=np.array([-0.05, -0.05]),
+                              high=np.array([0.05, 0.05]))
 
-def predict_actions(env, obs_stack, agent):
-    action = agent.get_action(obs, obs_stack.current_observation, env)
+
+def predict_actions(env, eval_dataset, obs_stack, agent, obs_dataset=None):
+    # TODO: Define history and newest obs in obs_stack.
+    stacked_obs = obs_stack.current_observation
+    new_obs = copy.deepcopy(stacked_obs)
+    img_key = obs_stack.image_key_out
+    obs_hist = [{img_key: new_obs[img_key][t]}
+                for t in range(len(new_obs[img_key]) - 1)]
+    new_obs = {k: v[-1] if k == img_key else v for k, v in new_obs.items()}
+    action = agent.get_action(new_obs, obs_hist, env)
+    full_action = {'linear_velocity': np.concatenate([action, [0.]], axis=0),
+                   'angular_velocity': np.array([0., 0., 0.]),
+                   'grip_open': 0}
+    obs = env.step(full_action)
+    if obs_dataset is not None:
+        obs = obs_dataset.step()
+    eval_dataset.append(action, obs)
+    obs_stack.append(obs)
 
 
-def end_episode(teleop, env, dataset, obs_stack):
+def end_episode(teleop, env, dataset, obs_stack, obs_dataset=None):
     if teleop.buttons[1] or teleop.buttons[2]:  # B, X
         dataset.flag_success(teleop.buttons[2])
         dataset.save()
         _ = env.reset()
-        start_episode(env, dataset, obs_stack)
+        start_episode(env, dataset, obs_stack, obs_dataset)
 
 
-def start_episode(env, dataset, obs_stack):
+def start_episode(env, dataset, obs_stack, obs_dataset):
     teleop = None
     print('Waiting for episode start')
     # Wait to receive a first image after a reset.
     while teleop is None or not teleop.buttons[0]:  # A
         teleop = rospy.wait_for_message('joy_teleop', Joy)
-        obs = env.env.render()
+        if obs_dataset is None:
+            obs = env.env.render()
+        else:
+            obs = obs_dataset.reset()
         dataset.reset(obs)
         obs_stack.reset(obs)
         print('Starting the episode')
@@ -263,14 +287,15 @@ def main(_):
         cam_list = ['bravo_camera', 'charlie_camera']
         main_camera = 'charlie'
     if FLAGS.sim:
-        rospy.init_node('bc_policy')
-        env = OfflineDataset(FLAGS.offline_dataset_path)
+        # rospy.init_node('bc_policy')
+        obs_dataset = OfflineDataset(FLAGS.offline_dataset_path)
     else:
-        env = gym.make(f'RealRobot-Cylinder-Push-{FLAGS.task_version}',
-                       cam_list=cam_list,
-                       arm=FLAGS.arm,
-                       version=FLAGS.task_version,
-                       depth=False)
+        obs_dataset = None
+    env = gym.make(f'RealRobot-Cylinder-Push-{FLAGS.task_version}',
+                   cam_list=cam_list,
+                   arm=FLAGS.arm,
+                   version=FLAGS.task_version,
+                   depth=False)
 
     agent, obs_stack, demo_dataset = load_saved_agent(
         env, main_camera, FLAGS.main_camera_crop, FLAGS.grayscale)
@@ -289,15 +314,16 @@ def main(_):
     teleop = None
     # TODO: Make sure to also reset stacked frames
     end_episode_callback = functools.partial(
-        end_episode, env=env, dataset=eval_dataset, obs_stack=obs_stack)
+        end_episode, env=env, dataset=eval_dataset, obs_stack=obs_stack,
+        obs_dataset=obs_dataset)
     rospy.Subscriber(success_topic, Joy, end_episode_callback, queue_size=1)
 
-    start_episode(env, eval_dataset, obs_stack)
+    start_episode(env, eval_dataset, obs_stack, obs_dataset)
     while not rospy.is_shutdown():
       
         # Should this node handle the control flow?
         # Always publish actions at 5Hz, they will simply be ignored by 
-        predict_actions(env, obs_stack, agent)
+        predict_actions(env, eval_dataset, obs_stack, agent, obs_dataset)
         rate.sleep()
   
  

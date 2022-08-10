@@ -54,7 +54,7 @@ class ObservationConverter:
     @property
     def current_observation(self):
         stacked_image = np.array(
-            [obs[self.image_key_in]
+            [obs[self.image_key_out]
              for obs in self.observations[-self.stack_length:]])
         # TODO: history for scalar fields?
         scalar_fields = {k: self.observations[-1][k] for k in self.visible_keys}
