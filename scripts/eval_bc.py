@@ -3,6 +3,7 @@ import functools
 import os
 import pickle
 import random
+import time
 
 import gym
 import rospy
@@ -189,6 +190,7 @@ def predict_actions(env, eval_dataset, obs_stack, agent, obs_dataset=None):
                 for t in range(len(new_obs[img_key]) - 1)]
     new_obs = {k: v[-1] if k == img_key else v for k, v in new_obs.items()}
     action = agent.get_action(new_obs, obs_hist, env)
+    print('action:', action)
     full_action = {'linear_velocity': np.concatenate([action, [0.]], axis=0),
                    'angular_velocity': np.array([0., 0., 0.]),
                    'grip_open': 0}
@@ -199,27 +201,42 @@ def predict_actions(env, eval_dataset, obs_stack, agent, obs_dataset=None):
     obs_stack.append(obs)
 
 
-def end_episode(teleop, env, dataset, obs_stack, obs_dataset=None):
+def end_episode(teleop, env, dataset, obs_stack, agent, obs_dataset=None):
     if teleop.buttons[1] or teleop.buttons[2]:  # B, X
+        env.is_ready = False
+        _ = env.reset()
         dataset.flag_success(teleop.buttons[2])
         dataset.save()
-        _ = env.reset()
-        start_episode(env, dataset, obs_stack, obs_dataset)
+        start_episode(env, dataset, obs_stack, agent, obs_dataset)
 
 
-def start_episode(env, dataset, obs_stack, obs_dataset):
+def start_episode(env, dataset, obs_stack, agent, obs_dataset):
     teleop = None
     print('Waiting for episode start')
     # Wait to receive a first image after a reset.
     while teleop is None or not teleop.buttons[0]:  # A
-        teleop = rospy.wait_for_message('joy_teleop', Joy)
-        if obs_dataset is None:
-            obs = env.env.render()
-        else:
-            obs = obs_dataset.reset()
-        dataset.reset(obs)
-        obs_stack.reset(obs)
-        print('Starting the episode')
+        print('Waiting for teleop')
+        teleop = rospy.wait_for_message('/joy_teleop', Joy, timeout=2)
+        print('Received teleop', teleop)
+    env.is_ready = True
+    print('Env is ready')
+    if obs_dataset is None:
+        obs = env.env.render()
+    else:
+        obs = obs_dataset.reset()
+    dataset.reset(obs)
+    obs_stack.reset(obs)
+    print('Starting the episode')
+    
+    rate = rospy.Rate(5)
+    prev_time = time.time()
+    while env.is_ready and not rospy.is_shutdown():
+        predict_actions(env, dataset, obs_stack, agent, obs_dataset)
+        new_time = time.time()
+        print('dt =', new_time - prev_time)
+        prev_time = new_time
+        rate.sleep()
+    print('Env is no longer ready')
 
 
 def load_saved_agent(env, main_camera, main_camera_crop, grayscale):
@@ -229,6 +246,7 @@ def load_saved_agent(env, main_camera, main_camera_crop, grayscale):
       demo_task, FLAGS.visible_state)
     image_size = FLAGS.image_size
 
+    # TODO: Make sure network weights are really loaded.
     agent = bc_agent.BCAgent(
         network_type=FLAGS.network,
         input_type=FLAGS.input_type,
@@ -251,6 +269,9 @@ def load_saved_agent(env, main_camera, main_camera_crop, grayscale):
         env=env,
         late_fusion=FLAGS.late_fusion,
         init_scheme=FLAGS.weight_init_scheme)
+    ckpt_to_load = os.path.join(ckpt_dir, 'ckpt')
+    print('Loading from', ckpt_to_load)
+    agent.load(ckpt_to_load)
 
     obs_stack = observations.ObservationConverter(
         main_camera,
@@ -266,7 +287,7 @@ def load_saved_agent(env, main_camera, main_camera_crop, grayscale):
         FLAGS.max_demo_length, FLAGS.augment_frames, agent, ckpt_dir,
         FLAGS.val_size, FLAGS.val_full_episodes)
 
-    return agent, obs_stack, dataset
+    return agent, obs_stack, dataset, ckpt_dir
 
 
 def main(_):
@@ -291,40 +312,49 @@ def main(_):
         obs_dataset = OfflineDataset(FLAGS.offline_dataset_path)
     else:
         obs_dataset = None
+    print('Using cameras', cam_list)
     env = gym.make(f'RealRobot-Cylinder-Push-{FLAGS.task_version}',
                    cam_list=cam_list,
                    arm=FLAGS.arm,
                    version=FLAGS.task_version,
                    depth=False)
 
-    agent, obs_stack, demo_dataset = load_saved_agent(
+    agent, obs_stack, demo_dataset, ckpt_dir = load_saved_agent(
         env, main_camera, FLAGS.main_camera_crop, FLAGS.grayscale)
 
-    rate = rospy.Rate(5)
+    # rate = rospy.Rate(5)
     real_obs = env.reset()
     
     timestamp = utils.get_timestamp()
-    dataset_path = os.path.join(os.environ['TOP_DATA_DIR'],
-                                f'rrlfd/evalPush_{timestamp}.pkl')
+    dataset_path = os.path.join(
+        ckpt_dir, 'real_robot_eval', f'evalPush_{timestamp}.pkl')
     eval_dataset = datasets.EpisodeDataset(dataset_path)
-    success_topic = 'joy_teleop'
     # Failure conditions: cube hits tape, cube exits action space
     # What about passing through target region but not stopping?
     # -> consider it a success, assuming success detection is instantaneous
-    teleop = None
     # TODO: Make sure to also reset stacked frames
     end_episode_callback = functools.partial(
         end_episode, env=env, dataset=eval_dataset, obs_stack=obs_stack,
-        obs_dataset=obs_dataset)
-    rospy.Subscriber(success_topic, Joy, end_episode_callback, queue_size=1)
+        agent=agent, obs_dataset=obs_dataset)
+    rospy.Subscriber('joy_teleop', Joy, end_episode_callback, queue_size=1)
 
-    start_episode(env, eval_dataset, obs_stack, obs_dataset)
-    while not rospy.is_shutdown():
-      
-        # Should this node handle the control flow?
-        # Always publish actions at 5Hz, they will simply be ignored by 
-        predict_actions(env, eval_dataset, obs_stack, agent, obs_dataset)
-        rate.sleep()
+    start_episode(env, eval_dataset, obs_stack, agent, obs_dataset)
+    # prev_time = time.time()
+    # while not rospy.is_shutdown():
+    #   
+    #     # Should this node handle the control flow?
+    #     # Always publish actions at 5Hz, they will simply be ignored by 
+    #     predict_actions(env, eval_dataset, obs_stack, agent, obs_dataset)
+    #     new_time = time.time()
+    #     print('dt =', new_time - prev_time)
+    #     prev_time = new_time
+    #     rate.sleep()
+    try:
+        # TODO: wrap all the setup above in this block
+        # (clean up and separate into fns)
+        rospy.spin()
+    except rospy.ROSInterruptException:
+        print('Exiting')
   
  
 if __name__ == '__main__':
