@@ -3,6 +3,7 @@ import functools
 import os
 import pickle
 import random
+import sys
 import time
 
 import gym
@@ -53,7 +54,7 @@ def predict_actions(env, eval_dataset, obs_stack, agent, obs_dataset=None):
     full_action = {'linear_velocity': np.concatenate([action, [0.]], axis=0),
                    'angular_velocity': np.array([0., 0., 0.]),
                    'grip_open': 0}
-    obs = env.step(full_action)
+    obs, done, reward, info = env.step(full_action)
     if obs_dataset is not None:
         obs = obs_dataset.step()
     eval_dataset.append(action, obs)
@@ -62,7 +63,6 @@ def predict_actions(env, eval_dataset, obs_stack, agent, obs_dataset=None):
 
 def teleop_callback(teleop, env, dataset, obs_stack, agent, obs_dataset=None):
     if teleop.buttons[0]:  # A
-        env.is_ready = True
         if obs_dataset is None:
             obs = env.env.render()
         else:
@@ -70,20 +70,39 @@ def teleop_callback(teleop, env, dataset, obs_stack, agent, obs_dataset=None):
         dataset.reset(obs)
         obs_stack.reset(obs)
         print('Starting the episode')
+        env.is_ready = True
     elif teleop.buttons[1] or teleop.buttons[2]:  # B, X
         env.is_ready = False
+        for _ in range(3):
+            env.step({'linear_velocity': np.array([0., 0., 0.]),
+                      'angular_velocity': np.array([0., 0., 0.])})
         # Wait for arm to come to a stop // send zero action or nothing?
         # rospy.sleep(1)
         env.reset()
         dataset.flag_success(teleop.buttons[2])
         dataset.save()
-
+    elif teleop_buttons[3]:  # Y
+        # Something else went wrong (not because of the policy): discard.
+        env.is_ready = False
+        for _ in range(3):
+            env.step({'linear_velocity': np.array([0., 0., 0.]),
+                      'angular_velocity': np.array([0., 0., 0.])})
+        # Wait for arm to come to a stop // send zero action or nothing?
+        # rospy.sleep(1)
+        env.reset()
+        dataset.discard_episode()
+        obs_stack.reset()
+        
 
 def start_episode(env, dataset, obs_stack, agent, obs_dataset):
     rate = rospy.Rate(5)
     # Wait to receive a first image after a reset.
     while not env.is_ready:
-        rate.sleep()
+        try:
+            rate.sleep()
+        except rospy.ROSInterruptException:
+            print('Exiting')
+            sys.exit()
     
     prev_time = time.time()
     while env.is_ready and not rospy.is_shutdown():
@@ -144,6 +163,19 @@ def load_saved_agent(env, main_camera, main_camera_crop, grayscale):
     obs_space = dataset.observations[0][0]
     agent.restore_from_ckpt(ckpt_to_load, compile_model=True,
                             obs_space=obs_space)
+    val_losses = train_utils.eval_on_valset(
+          dataset, agent, FLAGS.regression_loss, FLAGS.l2_weight)
+    test_set_size = FLAGS.test_set_size
+    if test_set_size > 0:
+        test_set_start = FLAGS.test_set_start or FLAGS.max_demos_to_load
+        test_dataset = train_utils.prepare_demos(
+            demos_file, FLAGS.input_type, test_set_start + test_set_size,
+            FLAGS.max_demo_length, augment_frames=False, agent=agent,
+            split_dir=None,
+            val_size=test_set_size / (test_set_start + test_set_size),
+            val_full_episodes=True, reset_agent_stats=False)
+        test_losses = train_utils.eval_on_valset(
+            test_dataset, agent, FLAGS.regression_loss, FLAGS.l2_weight)
 
     return agent, obs_stack, dataset, ckpt_dir
 
@@ -155,6 +187,8 @@ def main(_):
     tf.random.set_seed(FLAGS.seed)
 
     obs_dataset = None
+    # Test once with observations from offline dataset (we know the actions are safe).
+    # obs_dataset = datasets.OfflineDataset(FLAGS.offline_dataset_path)
     if FLAGS.sim:
         cam_list = []
         main_camera = 'left' if FLAGS.arm == 'right' else 'charlie'
