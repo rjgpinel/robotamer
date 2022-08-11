@@ -36,6 +36,8 @@ flags.DEFINE_enum('task_version', 'v0', ['v0', 'v1'],
                   'Which version of the task to use.')
 flags.DEFINE_boolean('grayscale', True,
                      'If True, convert RGB camera images to grayscale.')
+# flags.DEFINE_string('eval_id', None,
+#                     'Optional identifier to add to output file name.')
 # Default values for charlie_camera.
 flags.DEFINE_list('main_camera_crop', [140, -50, 180, 470],
                   'Region of full camera image to crop to before rescaling.')
@@ -65,6 +67,7 @@ def teleop_callback(teleop, env, dataset, obs_stack, agent, obs_dataset=None):
     if teleop.buttons[0]:  # A
         if obs_dataset is None:
             obs = env.env.render()
+            print('Observation fields', obs)
         else:
             obs = obs_dataset.reset()
         dataset.reset(obs)
@@ -97,12 +100,12 @@ def teleop_callback(teleop, env, dataset, obs_stack, agent, obs_dataset=None):
 def start_episode(env, dataset, obs_stack, agent, obs_dataset):
     rate = rospy.Rate(5)
     # Wait to receive a first image after a reset.
-    while not env.is_ready:
-        try:
-            rate.sleep()
-        except rospy.ROSInterruptException:
-            print('Exiting')
-            sys.exit()
+    while not env.is_ready and not rospy.is_shutdown():
+        # try:
+        rate.sleep()
+        # except rospy.ROSInterruptException:
+        #     print('Exiting')
+        #     sys.exit()
     
     prev_time = time.time()
     while env.is_ready and not rospy.is_shutdown():
@@ -203,29 +206,32 @@ def main(_):
                    cam_list=cam_list,
                    arm=FLAGS.arm,
                    version=FLAGS.task_version,
-                   depth=False)
+                   depth=True)
     env.is_ready = False
     agent, obs_stack, demo_dataset, ckpt_dir = load_saved_agent(
         env, main_camera, FLAGS.main_camera_crop, FLAGS.grayscale)
 
     env.reset()
 
-    try:
-        timestamp = utils.get_timestamp()
-        dataset_path = os.path.join(
-            ckpt_dir, 'real_robot_eval', f'evalPush_{timestamp}.pkl')
-        eval_dataset = datasets.EpisodeDataset(dataset_path)
-        # TODO: Make sure to also reset stacked frames
-        callback = functools.partial(
-            teleop_callback, env=env, dataset=eval_dataset, obs_stack=obs_stack,
-            agent=agent, obs_dataset=obs_dataset)
-        rospy.Subscriber('joy_teleop', Joy, callback, queue_size=1)
+    # try:
+    timestamp = utils.get_timestamp()
+    eval_id = ''
+    if FLAGS.eval_id:
+        eval_id = f'_{FLAGS.eval_id}'
+    dataset_path = os.path.join(
+        ckpt_dir, 'real_robot_eval', f'evalPush_{timestamp}{eval_id}.pkl')
+    eval_dataset = datasets.EpisodeDataset(dataset_path)
+    # TODO: Make sure to also reset stacked frames
+    callback = functools.partial(
+        teleop_callback, env=env, dataset=eval_dataset, obs_stack=obs_stack,
+        agent=agent, obs_dataset=obs_dataset)
+    rospy.Subscriber('joy_teleop', Joy, callback, queue_size=1)
 
-        while not rospy.is_shutdown():
-            print('Waiting for episode start')
-            start_episode(env, eval_dataset, obs_stack, agent, obs_dataset)
-    except rospy.ROSInterruptException:
-        print('Exiting')
+    while not rospy.is_shutdown():
+        print('Waiting for episode start')
+        start_episode(env, eval_dataset, obs_stack, agent, obs_dataset)
+    # except rospy.ROSInterruptException:
+    #     print('Exiting')
 
  
 if __name__ == '__main__':
