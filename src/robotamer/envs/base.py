@@ -92,6 +92,12 @@ class BaseEnv(gym.Env):
         for cam_name in cam_list:
             if cam_name in CAM_INFO:
                 self.cam_info[f"info_{cam_name}"] = CAM_INFO[cam_name]
+            self.cam_info[f"full_info_{cam_name}"] = (
+                self.robot.cameras[cam_name].info)
+        # self.cam_intrinsics = {}
+        # for cam_name in cam_list:
+            self.cam_info[f"intrinsics_{cam_name}"] = (
+                self.robot.cameras[cam_name].intrinsics)
         self._np_random = np.random
 
         self.neutral_gripper_orn = [pi, 0, 0] if arm == 'right' else [pi, 0, pi / 2]
@@ -239,6 +245,12 @@ class BaseEnv(gym.Env):
 
             if f"info_{cam_name}" in self.cam_info:
                 obs[f"info_{cam_name}"] = self.cam_info[f"info_{cam_name}"]
+            if f"full_info_{cam_name}" in self.cam_info:
+                obs[f"full_info_{cam_name}"] = (
+                    self.cam_info[f"full_info_{cam_name}"])
+            # if f"intrinsics_{cam_name}" in self.cam_info:
+            #     obs[f"intrinsics_{cam_name}"] = (
+            #         self.cam_info[f"intrinsics_{cam_name}"])
 
         gripper_pose = self.robot.eef_pose()
         obs["gripper_pos"] = np.array(gripper_pose[0])
