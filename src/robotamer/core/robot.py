@@ -281,6 +281,12 @@ class Robot:
             left_path, left_fraction = self.commander.left_arm.compute_cartesian_path(
                 [gripper_pose], eef_step=EEF_STEPS, jump_threshold=JUMP_THRESHOLD
             )
+
+            trajectory = left_path.joint_trajectory
+            valid = self.check_jumps(trajectory)
+            if not valid:
+                raise Exception("There is a jump in the path!")
+
             if left_fraction >= 1.0:
                 self.commander.left_arm.execute(left_path, wait=True)
                 success = True
