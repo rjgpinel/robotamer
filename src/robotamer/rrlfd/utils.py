@@ -6,6 +6,9 @@ from robotamer.envs.pick import PickEnv
 
 def init_env(sim, arm, offline_dataset_path=None, task_version='v0'):
     obs_dataset = None
+    # For testing with observations from offline dataset also on the real robot
+    # (once we have seen in sim the actions are safe).
+    # obs_dataset = datasets.OfflineDataset(offline_dataset_path)
     if sim:
         cam_list = []
         main_camera = 'left' if arm == 'right' else 'charlie'
@@ -20,7 +23,7 @@ def init_env(sim, arm, offline_dataset_path=None, task_version='v0'):
                    cam_list=cam_list,
                    arm=arm,
                    version=task_version,
-                   depth=False)
+                   depth=True)
     env.is_ready = False
-    return env, obs_dataset
+    return env, main_camera, obs_dataset
 

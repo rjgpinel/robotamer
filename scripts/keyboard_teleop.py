@@ -27,6 +27,8 @@ def talker():
             cmd.buttons = [0] + [1] + [0] * 10
         elif key == 'X':
             cmd.buttons = [0, 0] + [1] + [0] * 9
+        elif key == 'Y':
+            cmd.buttons = [0] * 3 + [1] + [0] * 8
         rospy.loginfo(cmd)
         pub.publish(cmd)
         rate.sleep()

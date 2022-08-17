@@ -64,6 +64,12 @@ def predict_actions(env, eval_dataset, obs_stack, agent, obs_dataset=None):
     obs_stack.append(obs)
 
 
+def stop_current_movement(env):
+    for _ in range(3):
+        env.step({'linear_velocity': np.array([0., 0., 0.]),
+                  'angular_velocity': np.array([0., 0., 0.])})
+
+
 def teleop_callback(teleop, env, dataset, obs_stack, agent, obs_dataset=None):
     if teleop.buttons[0]:  # A
         if obs_dataset is None:
@@ -77,22 +83,14 @@ def teleop_callback(teleop, env, dataset, obs_stack, agent, obs_dataset=None):
         env.is_ready = True
     elif teleop.buttons[1] or teleop.buttons[2]:  # B, X
         env.is_ready = False
-        for _ in range(3):
-            env.step({'linear_velocity': np.array([0., 0., 0.]),
-                      'angular_velocity': np.array([0., 0., 0.])})
-        # Wait for arm to come to a stop // send zero action or nothing?
-        # rospy.sleep(1)
+        stop_current_movement(env)
         env.reset()
         dataset.flag_success(teleop.buttons[2])
         dataset.save()
-    elif teleop_buttons[3]:  # Y
+    elif teleop.buttons[3]:  # Y
         # Something else went wrong (not because of the policy): discard.
         env.is_ready = False
-        for _ in range(3):
-            env.step({'linear_velocity': np.array([0., 0., 0.]),
-                      'angular_velocity': np.array([0., 0., 0.])})
-        # Wait for arm to come to a stop // send zero action or nothing?
-        # rospy.sleep(1)
+        stop_current_movement(env)
         env.reset()
         dataset.discard_episode()
         obs_stack.reset()
@@ -184,36 +182,12 @@ def load_saved_agent(env, main_camera, main_camera_crop, grayscale):
     return agent, obs_stack, dataset, ckpt_dir
 
 
-def init_env(sim, arm, task_version, offline_dataset_path):
-    obs_dataset = None
-    # For testing with observations from offline dataset also on the real robot
-    # (once we have seen in sim the actions are safe).
-    # obs_dataset = datasets.OfflineDataset(offline_dataset_path)
-    if sim:
-        cam_list = []
-        main_camera = 'left' if arm == 'right' else 'charlie'
-        obs_dataset = datasets.OfflineDataset(offline_dataset_path)
-    elif arm == 'right':
-        cam_list = ['left_camera', 'spare_camera']
-        main_camera = 'left'
-    else:
-        cam_list = ['bravo_camera', 'charlie_camera']
-        main_camera = 'charlie'
-    env = gym.make(f'RealRobot-Cylinder-Push-{task_version}',
-                   cam_list=cam_list,
-                   arm=FLAGS.arm,
-                   version=task_version,
-                   depth=True)
-    env.is_ready = False
-    return env, obs_dataset
-
-
 def main(_):
     os.environ['PYTHONHASHSEED'] = str(FLAGS.seed)
     random.seed(FLAGS.seed)
     np.random.seed(FLAGS.seed)
     tf.random.set_seed(FLAGS.seed)
-    env, obs_dataset = utils.init_env(
+    env, main_camera, obs_dataset = utils.init_env(
         FLAGS.sim, FLAGS.arm, FLAGS.offline_dataset_path, FLAGS.task_version)
     agent, obs_stack, demo_dataset, ckpt_dir = load_saved_agent(
         env, main_camera, FLAGS.main_camera_crop, FLAGS.grayscale)
