@@ -20,9 +20,10 @@ from rrlfd.bc import train_utils
 from rrlfd.bc import flags as bc_flags
 
 from robotamer.core import datasets
-from robotamer.core import utils
+from robotamer.core import utils as robotamer_utils
 from robotamer.envs.pick import PickEnv
 from robotamer.rrlfd import observations
+from robotamer.rrlfd import utils
 from sensor_msgs.msg import Joy
 
 
@@ -148,36 +149,41 @@ def load_saved_agent(env, main_camera, main_camera_crop, grayscale):
     return agent, obs_stack, dataset, ckpt_dir
 
 
-def main(_):
-    os.environ['PYTHONHASHSEED'] = str(FLAGS.seed)
-    random.seed(FLAGS.seed)
-    np.random.seed(FLAGS.seed)
-    tf.random.set_seed(FLAGS.seed)
-
+def init_env(sim, arm, task_version, offline_dataset_path):
     obs_dataset = None
-    if FLAGS.sim:
+    if sim:
         cam_list = []
-        main_camera = 'left' if FLAGS.arm == 'right' else 'charlie'
-        obs_dataset = datasets.OfflineDataset(FLAGS.offline_dataset_path)
-    elif FLAGS.arm == 'right':
+        main_camera = 'left' if arm == 'right' else 'charlie'
+        obs_dataset = datasets.OfflineDataset(offline_dataset_path)
+    elif arm == 'right':
         cam_list = ['left_camera', 'spare_camera']
         main_camera = 'left'
     else:
         cam_list = ['bravo_camera', 'charlie_camera']
         main_camera = 'charlie'
-    env = gym.make(f'RealRobot-Cylinder-Push-{FLAGS.task_version}',
+    env = gym.make(f'RealRobot-Cylinder-Push-{task_version}',
                    cam_list=cam_list,
                    arm=FLAGS.arm,
-                   version=FLAGS.task_version,
+                   version=task_version,
                    depth=False)
     env.is_ready = False
+    return env, obs_dataset
+
+
+def main(_):
+    os.environ['PYTHONHASHSEED'] = str(FLAGS.seed)
+    random.seed(FLAGS.seed)
+    np.random.seed(FLAGS.seed)
+    tf.random.set_seed(FLAGS.seed)
+    env, obs_dataset = utils.init_env(
+        FLAGS.sim, FLAGS.arm, FLAGS.offline_dataset_path, FLAGS.task_version)
     agent, obs_stack, demo_dataset, ckpt_dir = load_saved_agent(
         env, main_camera, FLAGS.main_camera_crop, FLAGS.grayscale)
 
     env.reset()
 
     try:
-        timestamp = utils.get_timestamp()
+        timestamp = robotamer_utils.get_timestamp()
         dataset_path = os.path.join(
             ckpt_dir, 'real_robot_eval', f'evalPush_{timestamp}.pkl')
         eval_dataset = datasets.EpisodeDataset(dataset_path)
