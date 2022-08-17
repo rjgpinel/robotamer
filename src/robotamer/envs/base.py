@@ -64,6 +64,7 @@ class BaseEnv(gym.Env):
         cam_info=None,
         arm="left",
         version="v0",
+        open_gripper=True,
     ):
         rospy.init_node("env_node", log_level=rospy.INFO)
 
@@ -79,7 +80,8 @@ class BaseEnv(gym.Env):
         self.cam_list = cam_list
 
         # Controller
-        self.robot = Robot(self.workspace, cam_list, depth=depth, arm=arm)
+        self.robot = Robot(self.workspace, cam_list, depth=depth, arm=arm,
+                           open_gripper=open_gripper)
         self.arm_name = arm
 
         # Depth flag
@@ -180,8 +182,8 @@ class BaseEnv(gym.Env):
 
     def stop_current_movement(self):
         for _ in range(3):
-            env.step({'linear_velocity': np.array([0., 0., 0.]),
-                      'angular_velocity': np.array([0., 0., 0.])})
+            self.step({'linear_velocity': np.array([0., 0., 0.]),
+                       'angular_velocity': np.array([0., 0., 0.])})
 
     def reset(self, **kwargs):
         self.stop_current_movement()
@@ -233,7 +235,7 @@ class BaseEnv(gym.Env):
     def get_eef_velocity(self, vel):
         self.eef_velocity = np.array([vel.x, vel.y, vel.z])
 
-    def render(self):
+    def render(self, *unused_args, **unused_kwargs):
         obs = {}
 
         for cam_name in self.robot.cam_list:

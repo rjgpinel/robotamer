@@ -12,7 +12,8 @@ def init_env(sim, arm, offline_dataset_path=None, task_version='v0'):
     if sim:
         cam_list = []
         main_camera = 'left' if arm == 'right' else 'charlie'
-        obs_dataset = datasets.OfflineDataset(offline_dataset_path)
+        if offline_dataset_path is not None:
+            obs_dataset = datasets.OfflineDataset(offline_dataset_path)
     elif arm == 'right':
         cam_list = ['left_camera', 'spare_camera']
         main_camera = 'left'

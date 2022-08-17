@@ -29,7 +29,7 @@ from trajectory_msgs.msg import JointTrajectory
 
 
 class Robot:
-    def __init__(self, workspace, cam_list, depth=False, cam_async=False, arm='left'):
+    def __init__(self, workspace, cam_list, depth=False, cam_async=False, arm='left', open_gripper=True):
         # Create ros node
         moveit_commander.roscpp_initialize(sys.argv)
 
@@ -95,8 +95,8 @@ class Robot:
 
         # Grasped flag
         self._grasped = False
-        self._grip_velocity = 2
-        self.reset()
+        self._grip_velocity = 2 if open_gripper else -2
+        self.reset(open_gripper=open_gripper)
 
     def reset(self, open_gripper=True):
         self._is_goal_init = False
