@@ -73,7 +73,7 @@ def stop_current_movement(env):
 def teleop_callback(teleop, env, dataset, obs_stack, agent, obs_dataset=None):
     if teleop.buttons[0]:  # A
         if obs_dataset is None:
-            obs = env.env.render()
+            obs = env.render()
             print('Observation fields', obs)
         else:
             obs = obs_dataset.reset()
@@ -83,14 +83,14 @@ def teleop_callback(teleop, env, dataset, obs_stack, agent, obs_dataset=None):
         env.is_ready = True
     elif teleop.buttons[1] or teleop.buttons[2]:  # B, X
         env.is_ready = False
-        stop_current_movement(env)
+        # stop_current_movement(env)
         env.reset()
         dataset.flag_success(teleop.buttons[2])
         dataset.save()
     elif teleop.buttons[3]:  # Y
         # Something else went wrong (not because of the policy): discard.
         env.is_ready = False
-        stop_current_movement(env)
+        # stop_current_movement(env)
         env.reset()
         dataset.discard_episode()
         obs_stack.reset()

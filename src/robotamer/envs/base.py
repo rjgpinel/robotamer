@@ -178,7 +178,13 @@ class BaseEnv(gym.Env):
 
         self.robot.reset(open_gripper=open_gripper)
 
+    def stop_current_movement(self):
+        for _ in range(3):
+            env.step({'linear_velocity': np.array([0., 0., 0.]),
+                      'angular_velocity': np.array([0., 0., 0.])})
+
     def reset(self, **kwargs):
+        self.stop_current_movement()
         self._reset(**kwargs)
         return self.render()
 

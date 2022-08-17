@@ -40,3 +40,6 @@ class PushEnv(BaseEnv):
         else:
             obs = self.reset_eef()
         return obs
+
+    # def render(self, *args, **kwargs):
+    #     return self.env.render(*args, **kwargs)
