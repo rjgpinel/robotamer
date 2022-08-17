@@ -43,7 +43,7 @@ def teleop_callback(data, env, dataset, x_scale=0.1, y_scale=0.1):
     action_2d = np.array([vx, vy])
     print('Sending', action)
     if start:
-        obs = env.env.render()
+        obs = env.render()
         dataset.reset(obs)
         print('Observation fields', obs.keys())
     if done:
@@ -91,7 +91,7 @@ def main(_):
                        cam_list=cam_list,
                        arm=FLAGS.arm,
                        version=FLAGS.task_version,
-                       depth=True)
+                       depth=not FLAGS.sim)
 
         real_obs = env.reset()
         print('Cartesian pose', env.robot.eef_pose())
