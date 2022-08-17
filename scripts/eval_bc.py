@@ -3,6 +3,7 @@ import functools
 import os
 import pickle
 import random
+import sys
 import time
 
 import gym
@@ -36,6 +37,8 @@ flags.DEFINE_enum('task_version', 'v0', ['v0', 'v1'],
                   'Which version of the task to use.')
 flags.DEFINE_boolean('grayscale', True,
                      'If True, convert RGB camera images to grayscale.')
+# flags.DEFINE_string('eval_id', None,
+#                     'Optional identifier to add to output file name.')
 # Default values for charlie_camera.
 flags.DEFINE_list('main_camera_crop', [140, -50, 180, 470],
                   'Region of full camera image to crop to before rescaling.')
@@ -54,7 +57,7 @@ def predict_actions(env, eval_dataset, obs_stack, agent, obs_dataset=None):
     full_action = {'linear_velocity': np.concatenate([action, [0.]], axis=0),
                    'angular_velocity': np.array([0., 0., 0.]),
                    'grip_open': 0}
-    obs = env.step(full_action)
+    obs, done, reward, info = env.step(full_action)
     if obs_dataset is not None:
         obs = obs_dataset.step()
     eval_dataset.append(action, obs)
@@ -63,28 +66,47 @@ def predict_actions(env, eval_dataset, obs_stack, agent, obs_dataset=None):
 
 def teleop_callback(teleop, env, dataset, obs_stack, agent, obs_dataset=None):
     if teleop.buttons[0]:  # A
-        env.is_ready = True
         if obs_dataset is None:
             obs = env.env.render()
+            print('Observation fields', obs)
         else:
             obs = obs_dataset.reset()
         dataset.reset(obs)
         obs_stack.reset(obs)
         print('Starting the episode')
+        env.is_ready = True
     elif teleop.buttons[1] or teleop.buttons[2]:  # B, X
         env.is_ready = False
+        for _ in range(3):
+            env.step({'linear_velocity': np.array([0., 0., 0.]),
+                      'angular_velocity': np.array([0., 0., 0.])})
         # Wait for arm to come to a stop // send zero action or nothing?
         # rospy.sleep(1)
         env.reset()
         dataset.flag_success(teleop.buttons[2])
         dataset.save()
-
+    elif teleop_buttons[3]:  # Y
+        # Something else went wrong (not because of the policy): discard.
+        env.is_ready = False
+        for _ in range(3):
+            env.step({'linear_velocity': np.array([0., 0., 0.]),
+                      'angular_velocity': np.array([0., 0., 0.])})
+        # Wait for arm to come to a stop // send zero action or nothing?
+        # rospy.sleep(1)
+        env.reset()
+        dataset.discard_episode()
+        obs_stack.reset()
+        
 
 def start_episode(env, dataset, obs_stack, agent, obs_dataset):
     rate = rospy.Rate(5)
     # Wait to receive a first image after a reset.
-    while not env.is_ready:
+    while not env.is_ready and not rospy.is_shutdown():
+        # try:
         rate.sleep()
+        # except rospy.ROSInterruptException:
+        #     print('Exiting')
+        #     sys.exit()
     
     prev_time = time.time()
     while env.is_ready and not rospy.is_shutdown():
@@ -145,12 +167,28 @@ def load_saved_agent(env, main_camera, main_camera_crop, grayscale):
     obs_space = dataset.observations[0][0]
     agent.restore_from_ckpt(ckpt_to_load, compile_model=True,
                             obs_space=obs_space)
+    val_losses = train_utils.eval_on_valset(
+          dataset, agent, FLAGS.regression_loss, FLAGS.l2_weight)
+    test_set_size = FLAGS.test_set_size
+    if test_set_size > 0:
+        test_set_start = FLAGS.test_set_start or FLAGS.max_demos_to_load
+        test_dataset = train_utils.prepare_demos(
+            demos_file, FLAGS.input_type, test_set_start + test_set_size,
+            FLAGS.max_demo_length, augment_frames=False, agent=agent,
+            split_dir=None,
+            val_size=test_set_size / (test_set_start + test_set_size),
+            val_full_episodes=True, reset_agent_stats=False)
+        test_losses = train_utils.eval_on_valset(
+            test_dataset, agent, FLAGS.regression_loss, FLAGS.l2_weight)
 
     return agent, obs_stack, dataset, ckpt_dir
 
 
 def init_env(sim, arm, task_version, offline_dataset_path):
     obs_dataset = None
+    # For testing with observations from offline dataset also on the real robot
+    # (once we have seen in sim the actions are safe).
+    # obs_dataset = datasets.OfflineDataset(offline_dataset_path)
     if sim:
         cam_list = []
         main_camera = 'left' if arm == 'right' else 'charlie'
@@ -165,7 +203,7 @@ def init_env(sim, arm, task_version, offline_dataset_path):
                    cam_list=cam_list,
                    arm=FLAGS.arm,
                    version=task_version,
-                   depth=False)
+                   depth=True)
     env.is_ready = False
     return env, obs_dataset
 
@@ -182,22 +220,24 @@ def main(_):
 
     env.reset()
 
-    try:
-        timestamp = robotamer_utils.get_timestamp()
-        dataset_path = os.path.join(
-            ckpt_dir, 'real_robot_eval', f'evalPush_{timestamp}.pkl')
-        eval_dataset = datasets.EpisodeDataset(dataset_path)
-        # TODO: Make sure to also reset stacked frames
-        callback = functools.partial(
-            teleop_callback, env=env, dataset=eval_dataset, obs_stack=obs_stack,
-            agent=agent, obs_dataset=obs_dataset)
-        rospy.Subscriber('joy_teleop', Joy, callback, queue_size=1)
+    timestamp = robotamer_utils.get_timestamp()
+    eval_id = ''
+    if FLAGS.eval_id:
+        eval_id = f'_{FLAGS.eval_id}'
+    dataset_path = os.path.join(
+        ckpt_dir, 'real_robot_eval', f'evalPush_{timestamp}{eval_id}.pkl')
+    eval_dataset = datasets.EpisodeDataset(dataset_path)
+    # TODO: Make sure to also reset stacked frames
+    callback = functools.partial(
+        teleop_callback, env=env, dataset=eval_dataset, obs_stack=obs_stack,
+        agent=agent, obs_dataset=obs_dataset)
+    rospy.Subscriber('joy_teleop', Joy, callback, queue_size=1)
 
-        while not rospy.is_shutdown():
-            print('Waiting for episode start')
-            start_episode(env, eval_dataset, obs_stack, agent, obs_dataset)
-    except rospy.ROSInterruptException:
-        print('Exiting')
+    while not rospy.is_shutdown():
+        print('Waiting for episode start')
+        start_episode(env, eval_dataset, obs_stack, agent, obs_dataset)
+    # except rospy.ROSInterruptException:
+    #     print('Exiting')
 
  
 if __name__ == '__main__':

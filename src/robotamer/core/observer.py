@@ -1,14 +1,34 @@
+import os
 import tf2_ros
 import rospy
 import numpy as np
 
-from sensor_msgs.msg import JointState
+import pyrealsense2 as rs2
+from sensor_msgs.msg import CameraInfo
 from sensor_msgs.msg import Image
+from sensor_msgs.msg import JointState
 
 
 class Camera:
     def __init__(self, topic):
         self._topic = topic
+        self._info_topic = os.path.join(os.path.dirname(topic), 'camera_info')
+        self.info = rospy.wait_for_message(
+            self._info_topic, CameraInfo, timeout=None)
+        self.intrinsics = self.info_to_intrinsics()
+
+    def info_to_intrinsics(self):
+        msg = self.info
+        intrinsics = rs2.intrinsics()
+        intrinsics.height = msg.height    
+        intrinsics.width = msg.width
+        intrinsics.fx = msg.K[0]
+        intrinsics.fy = msg.K[4]
+        intrinsics.ppx = msg.K[2]
+        intrinsics.ppy = msg.K[5]
+        intrinsics.model = rs2.pyrealsense2.distortion.none
+        intrinsics.coeffs = msg.D
+        return intrinsics
 
     def record_image(self, timeout=None, dtype=np.uint8):
         """Return next received image as numpy array in specified encoding.
@@ -22,7 +42,7 @@ class Camera:
         return data
 
 
-class CameraAsync:
+class CameraAsync(Camera):
     def __init__(self, topic):
         self._topic = topic
         self._im_msg = None

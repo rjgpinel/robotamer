@@ -50,7 +50,7 @@ class EpisodeDataset:
     def save(self):
         with open(self.path, 'ab') as f:
             pickle.dump(self.episodes[-1], f)
-        print('Finished saving to file')
+        print('Finished saving to', self.path)
 
     def flag_success(self, success):
         self.episodes[-1]['success'] = success

@@ -91,7 +91,7 @@ def main(_):
                        cam_list=cam_list,
                        arm=FLAGS.arm,
                        version=FLAGS.task_version,
-                       depth=False)
+                       depth=True)
 
         real_obs = env.reset()
         print('Cartesian pose', env.robot.eef_pose())
