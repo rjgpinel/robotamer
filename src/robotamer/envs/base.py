@@ -102,13 +102,13 @@ class BaseEnv(gym.Env):
                 self.robot.cameras[cam_name].intrinsics)
         self._np_random = np.random
 
-        self.neutral_gripper_orn = [pi, 0, 0] if arm == 'right' else [pi, 0, pi / 2]
+        self.neutral_gripper_orn = [pi, 0, 0] if arm == "right" else [pi, 0, pi / 2]
         self.safe_height = GRIPPER_HEIGHT_INIT[-1]
 
         # Subsribe to eef velocity.
         self.velocity_subscriber = rospy.Subscriber(
-            f'{arm}_eef_velocity', Vector3, self.get_eef_velocity, queue_size=1)
-        self.eef_velocity = None
+            f"{arm}_eef_velocity", Vector3, self.get_eef_velocity, queue_size=1)
+        self.eef_velocity = np.array([0., 0., 0.])
 
     def seed(self, seed):
         np_random, seed = seeding.np_random(seed)
@@ -122,46 +122,46 @@ class BaseEnv(gym.Env):
 
     def _get_current_config(self):
         variables = self.robot.commander.get_current_variable_values()
-        config_joints = [f'{self.arm_name}_{k}' for k in [
-            'shoulder_pan_joint',
-            'shoulder_lift_joint',
-            'elbow_joint',
-            'wrist_1_joint',
-            'wrist_2_joint',
-            'wrist_3_joint']]
+        config_joints = [f"{self.arm_name}_{k}" for k in [
+            "shoulder_pan_joint",
+            "shoulder_lift_joint",
+            "elbow_joint",
+            "wrist_1_joint",
+            "wrist_2_joint",
+            "wrist_3_joint"]]
         config = [variables[k] for k in config_joints]
         return config
 
     def _reset(self, gripper_pos=None, gripper_orn=None, open_gripper=True, joints=None, home_only=False, **kwargs):
-        print('Returning to home config')
+        print("Returning to home config")
         success = self.robot.set_config(self.home_config)
         if success:
-            print('Done')
+            print("Done")
         else:
-            print('Failed to return')
+            print("Failed to return")
         config = self._get_current_config()
         diff = np.subtract(config, self.home_config)
 
-        print('Current config vs. home; difference')
+        print("Current config vs. home; difference")
         np.set_printoptions(suppress=True, linewidth=90)
         print(np.array2string(
-            np.stack([config, self.home_config, diff]), separator=', '))
+            np.stack([config, self.home_config, diff]), separator=", "))
         np.set_printoptions(suppress=False, linewidth=75)
-        print('EEF pose', self.robot.eef_pose())
+        print("EEF pose", self.robot.eef_pose())
         if home_only:
             return
 
         if joints is not None:
-            print('Setting to custom config')
+            print("Setting to custom config")
             success = self.robot.set_config(joints)
             config = self._get_current_config()
             diff = np.subtract(config, joints)
 
-            print('Current config vs. target; difference')
+            print("Current config vs. target; difference")
             np.set_printoptions(suppress=True, linewidth=90)
             print(np.array2string(
-                np.stack([config, joints, diff]), separator=', '))
-            print('EEF pose', self.robot.eef_pose())
+                np.stack([config, joints, diff]), separator=", "))
+            print("EEF pose", self.robot.eef_pose())
             np.set_printoptions(suppress=False, linewidth=75)
         if gripper_pos is not None or gripper_orn is not None:
             if gripper_pos is None:
@@ -171,19 +171,20 @@ class BaseEnv(gym.Env):
             if gripper_orn is None:
                 gripper_orn = self.neutral_gripper_orn
 
-            print('Moving to cartesian pose', gripper_pos, gripper_orn)
+            print("Moving to cartesian pose", gripper_pos, gripper_orn)
             success = self.robot.go_to_pose(gripper_pos, gripper_orn, cartesian=True)
 
         if not success:
-            print("Moving the robot to default position failed")
-            exit()
+            # print("Moving the robot to default position failed")
+            raise RuntimeError("Moving the robot to default position failed")
+            # exit()
 
         self.robot.reset(open_gripper=open_gripper)
 
     def stop_current_movement(self):
         for _ in range(3):
-            self.step({'linear_velocity': np.array([0., 0., 0.]),
-                       'angular_velocity': np.array([0., 0., 0.])})
+            self.step({"linear_velocity": np.array([0., 0., 0.]),
+                       "angular_velocity": np.array([0., 0., 0.])})
 
     def reset(self, **kwargs):
         self.stop_current_movement()

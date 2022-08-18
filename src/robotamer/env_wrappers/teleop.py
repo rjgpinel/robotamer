@@ -23,7 +23,8 @@ class TeleopWrapper(gym.Wrapper):
         if not self.is_ready:
             print('Called step when env is resetting')
         obs, reward, done, info = self.env.step(action)
-        # obs['rgb_charlie_camera'] = np.random.randint(256, shape=(720, 480), dtype=np.uint8)
+        # obs['rgb_charlie_camera'] = np.random.randint(
+        #     256, size=(720, 480), dtype=np.uint8)
         # For overwriting success signal.
         info.pop('success', None)
         if 'TimeLimit.truncated' in info and info['TimeLimit.truncated']:
@@ -42,7 +43,8 @@ class TeleopWrapper(gym.Wrapper):
         while not self.is_ready:
             self._rate.sleep()
         obs = self.env.render()
-        # obs['rgb_charlie_camera'] = np.random.randint(256, shape=(720, 480), dtype=np.uint8)
+        # obs['rgb_charlie_camera'] = np.random.randint(
+        #     256, size=(720, 480), dtype=np.uint8)
         return obs
 
     def teleop_callback(self, teleop):
@@ -54,13 +56,6 @@ class TeleopWrapper(gym.Wrapper):
         success = teleop.buttons[2]  # X
         discard = teleop.buttons[3]  # Y
         if start:
-            # if self.obs_dataset is None:
-            #     obs = self.env.render()
-            #     print('Observation fields', obs)
-            # else:
-            #     obs = self.obs_dataset.reset()
-            # dataset.reset(obs)
-            # obs_stack.reset(obs)
             self.info = {}
             self.is_ready = True
             self.done = False
@@ -69,19 +64,11 @@ class TeleopWrapper(gym.Wrapper):
             self.is_ready = False
             self.done = True
             self.info = {'success': success, 'discard': False}
-            # Moves the arm to the starting position.
-            # self.env.reset()
-            # dataset.flag_success(teleop.buttons[2])
-            # dataset.save()
         elif discard:
             # Something else went wrong (not because of the policy): discard.
             self.is_ready = False
             self.done = True
             self.info = {'success': False, 'discard': True}
-            # Moves the arm to the starting position.
-            # self.env.reset()
-            # dataset.discard_episode()
-            # obs_stack.reset()
         elif self.allow_teleop_actions:
             vx = self._x_scale * joy_up
             vy = self._y_scale * joy_left

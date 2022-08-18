@@ -64,10 +64,23 @@ def predict_actions(env, eval_dataset, obs_stack, agent):
     return done
 
 
+def attempt_reset(env, max_attempts=2):
+    reset_attempts = 0
+    while reset_attempts < max_attempts:
+        try:
+            obs = env.reset()
+            break
+        except RuntimeError as e:
+            reset_attempts += 1
+            if reset_attempts >= max_attempts:
+                raise e
+    return obs
+
+
 def start_episode(env, dataset, obs_stack, agent):
     rate = rospy.Rate(5)
     while not rospy.is_shutdown():
-        obs = env.reset()
+        obs = attempt_reset(env)
         dataset.reset(obs)
         prev_time = time.time()
         done = False
