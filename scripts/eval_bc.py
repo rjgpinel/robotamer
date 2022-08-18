@@ -23,7 +23,6 @@ from rrlfd.bc import flags as bc_flags
 from robotamer.core import datasets
 from robotamer.core import utils as robotamer_utils
 from robotamer.envs.pick import PickEnv
-from robotamer.rrlfd import observations
 from robotamer.rrlfd import env_utils
 from sensor_msgs.msg import Joy
 
@@ -47,7 +46,7 @@ flags.DEFINE_string('offline_dataset_path', None,
 FLAGS = flags.FLAGS
 
 
-def predict_actions(env, eval_dataset, obs_stack, agent):
+def predict_actions(env, eval_dataset, agent):
     new_obs = env.newest_observation
     obs_hist = env.observation_history
     action = agent.get_action(new_obs, obs_hist, env)
@@ -77,7 +76,7 @@ def attempt_reset(env, max_attempts=2):
     return obs
 
 
-def start_episode(env, dataset, obs_stack, agent):
+def start_episode(env, dataset, agent):
     rate = rospy.Rate(5)
     while not rospy.is_shutdown():
         obs = attempt_reset(env)
@@ -85,7 +84,7 @@ def start_episode(env, dataset, obs_stack, agent):
         prev_time = time.time()
         done = False
         while not done and not rospy.is_shutdown():
-            done = predict_actions(env, dataset, obs_stack, agent)
+            done = predict_actions(env, dataset, agent)
             new_time = time.time()
             print('dt =', new_time - prev_time)
             prev_time = new_time
@@ -98,7 +97,7 @@ def start_episode(env, dataset, obs_stack, agent):
             # done = False
 
 
-def load_saved_agent(env, main_camera, main_camera_crop, grayscale):
+def load_saved_agent(env, main_camera_crop, grayscale):
     demo_task = FLAGS.demo_task or FLAGS.eval_task
     demos_file, ckpt_dir, summary_dir = train_utils.set_paths(demo_task)
     visible_state_features = prl_ur5_utils.get_visible_features_for_task(
@@ -129,14 +128,6 @@ def load_saved_agent(env, main_camera, main_camera_crop, grayscale):
         init_scheme=FLAGS.weight_init_scheme,
         num_input_channels=1 if FLAGS.grayscale else 3)
 
-    obs_stack = observations.ObservationConverter(
-        main_camera,
-        visible_state_features,
-        agent.num_input_frames,
-        image_size,
-        grayscale=grayscale,
-        crop=main_camera_crop,
-    )
     # For setting normalization stats.
     dataset = train_utils.prepare_demos(
         demos_file, FLAGS.input_type, FLAGS.max_demos_to_load,
@@ -162,7 +153,7 @@ def load_saved_agent(env, main_camera, main_camera_crop, grayscale):
         test_losses = train_utils.eval_on_valset(
             test_dataset, agent, FLAGS.regression_loss, FLAGS.l2_weight)
 
-    return agent, obs_stack, dataset, ckpt_dir
+    return agent, dataset, ckpt_dir
 
 
 def main(_):
@@ -173,7 +164,7 @@ def main(_):
     eval_task = FLAGS.eval_task
     visible_state_features = prl_ur5_utils.get_visible_features_for_task(
         eval_task, FLAGS.visible_state)
-    env, main_camera = env_utils.init_env(
+    env = env_utils.init_env(
         FLAGS.sim, FLAGS.arm, FLAGS.input_type, eval_task,
         visible_state_features,
         num_input_frames=FLAGS.num_input_frames,
@@ -182,9 +173,8 @@ def main(_):
         grayscale=FLAGS.grayscale,
         offline_dataset_path=FLAGS.offline_dataset_path,
         task_version=FLAGS.task_version)
-    agent, obs_stack, demo_dataset, ckpt_dir = load_saved_agent(
-        env, main_camera, FLAGS.main_camera_crop,
-        FLAGS.grayscale)
+    agent, demo_dataset, ckpt_dir = load_saved_agent(
+        env, FLAGS.main_camera_crop, FLAGS.grayscale)
 
     timestamp = robotamer_utils.get_timestamp()
     eval_id = ''
@@ -195,7 +185,7 @@ def main(_):
     eval_dataset = datasets.EpisodeDataset(dataset_path)
 
     try:
-        start_episode(env, eval_dataset, obs_stack, agent)
+        start_episode(env, eval_dataset, agent)
     except rospy.ROSInterruptException:
         print('Exiting')
 

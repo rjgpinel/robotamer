@@ -50,5 +50,5 @@ def init_env(sim, arm, input_type, task, visible_state_features=[],
         env, [image_key_out] + visible_state_features, gripper_in_2d)
     env = observations.ImageStackingWrapper(
         env, image_key_out, num_input_frames)
-    return env, main_camera
+    return env
 
