@@ -21,20 +21,25 @@ class TeleopWrapper(gym.Wrapper):
         self._y_scale = y_scale
 
     def step(self, action):
+        if not self.is_ready:
+            print('Called step when env is resetting')
         if self.obs_dataset is None:
             obs, reward, done, info = self.env.step(action)
         else:
             obs = self.obs_dataset.step()
+            # TODO: Read from dataset if present.
             reward = 0
             done = False
             info = {}
-        done = done or self.info 
+        done = self.done
         info = {**info, **self.info}
         return obs, reward, done, info
 
     def reset(self):
+        # Moves the arm to the starting position.
+        self.env.reset()
+        print('Waiting for episode start')
         while not self.is_ready:
-            print('Env is not ready')
             self._rate.sleep()
         if self.obs_dataset is None:
             obs = self.env.render()
@@ -58,22 +63,25 @@ class TeleopWrapper(gym.Wrapper):
             #     obs = self.obs_dataset.reset()
             # dataset.reset(obs)
             # obs_stack.reset(obs)
-            print('Starting the episode')
             self.info = {}
             self.is_ready = True
+            self.done = False
+            print('Starting the episode')
         elif failure or success:
             self.is_ready = False
+            self.done = True
             self.info = {'success': success, 'discard': False}
             # Moves the arm to the starting position.
-            self.env.reset()
+            # self.env.reset()
             # dataset.flag_success(teleop.buttons[2])
             # dataset.save()
         elif discard:
             # Something else went wrong (not because of the policy): discard.
             self.is_ready = False
+            self.done = True
             self.info = {'success': False, 'discard': True}
             # Moves the arm to the starting position.
-            self.env.reset()
+            # self.env.reset()
             # dataset.discard_episode()
             # obs_stack.reset()
         elif self.allow_teleop_actions:

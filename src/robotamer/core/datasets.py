@@ -8,6 +8,7 @@ from PIL import Image
 
 
 class EpisodeDataset:
+    """Build up an episodic dataset and save to pickle."""
 
     def __init__(self, path):
         self.path = path
@@ -31,11 +32,14 @@ class EpisodeDataset:
 
     def reset(self, obs):
         print('Starting episode', len(self.episodes) + 1)
-        self.episodes.append({'observations': [obs], 'actions': []})
+        self.episodes.append(
+            {'observations': [obs], 'actions': [], 'rewards': [], 'infos': []})
 
-    def append(self, act, next_obs):
+    def append(self, act, next_obs, reward=None, info=None):
         self.episodes[-1]['actions'].append(act)
         self.episodes[-1]['observations'].append(next_obs)
+        self.episodes[-1]['rewards'].append(reward)
+        self.episodes[-1]['infos'].append(info)
 
     def discard_episode(self):
         if self.episodes:
@@ -44,8 +48,11 @@ class EpisodeDataset:
         else:
             print('No episodes to discard')
 
-    def append_action(self, act):
+    def append_action(self, act, reward=None, info=None):
+        """Append non-obs fields in order to match lengths across all fields."""
         self.episodes[-1]['actions'].append(act)
+        self.episodes[-1]['rewards'].append(reward)
+        self.episodes[-1]['infos'].append(info)
 
     def save(self):
         with open(self.path, 'ab') as f:

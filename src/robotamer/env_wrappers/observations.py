@@ -1,12 +1,49 @@
 """Environment wrappers for preprocessing observations."""
 
+import abc
 import copy
 import gym
 import numpy as np
 from PIL import Image
 
 
-class ImageObservationWrapper(gym.Wrapper):
+class ObservationWrapper(gym.Wrapper, abc.ABC):
+    """Base environment wrapper for modifying observations."""
+
+    @abc.abstractmethod
+    def _wrap_observation(self, obs):
+        """Modify observation obs from wrapped environment."""
+
+    def reset(self):
+        obs = self.env.reset()
+        return self._wrap_observation(obs)
+
+    def step(self, action):
+        obs, reward, done, info = self.env.step(action)
+        return self._wrap_observation(obs), reward, done, info
+
+
+class VisibleStateWrapper(ObservationWrapper):
+    """Wrapper for preprocessing scalar observation fields."""
+
+    def __init__(self, env, visible_state_features, gripper_in_2d=False):
+        super().__init__(env)
+        self._visible_keys = visible_state_features
+        self._gripper_in_2d = gripper_in_2d
+
+    def _wrap_observation(self, obs):
+        """Leave out keys not in visible keys and process gripper states."""
+        wrapped_obs = {}
+        for k in self._visible_keys:
+            v = obs[k]
+            if self._gripper_in_2d and k in [
+                'gripper_pos', 'gripper_trans_velocity']:
+                 v = v[:2]
+            wrapped_obs[k] = copy.deepcopy(v)
+        return wrapped_obs
+
+
+class ImageObservationWrapper(ObservationWrapper):
     """Wrapper supporting cropped, resized and grayscaled image observations."""
 
     def __init__(self, env, image_key_in, image_key_out=None, crop=None,
@@ -22,7 +59,9 @@ class ImageObservationWrapper(gym.Wrapper):
         self.grayscale = grayscale
     
     def _wrap_observation(self, obs):
-        wrapped_obs = {}
+        wrapped_obs = {
+            k: copy.deepcopy(v) for k, v in obs.items()
+            if k != self.image_key_in}
         img = copy.deepcopy(obs[self.image_key_in])
         if self.crop is not None:
             crop = self.crop
@@ -37,16 +76,9 @@ class ImageObservationWrapper(gym.Wrapper):
         wrapped_obs[self.image_key_out] = img
         return wrapped_obs
         
-    def reset(self):
-        obs = self.env.reset()
-        return self._wrap_observation(obs)
-
-    def step(self, action):
-        obs, reward, done, info = self.env.step(action)
-        return self._wrap_observation(obs), reward, done, info
-
 
 class ImageStackingWrapper(gym.Wrapper):
+    """Wrapper to keep a history of image fields for stacking."""
 
     def __init__(self, env, image_key, stack_length):
         super().__init__(env)
@@ -80,3 +112,22 @@ class ImageStackingWrapper(gym.Wrapper):
     @property
     def observation_history(self):
         return self.observations[:-1]
+
+
+class StaticDatasetWrapper(gym.Wrapper):
+    """Env wrapper that replaces observations with fields from a dataset."""
+
+    def __init__(self, obs_dataset):
+        super().__init__(env)
+        self._obs_dataset = obs_dataset
+
+    def step(self, action):
+        obs, reward, done, info = self.env.step(action)
+        obs = self._obs_dataset.step()
+        return obs, reward, done, info
+
+    def reset(self):
+        self.env.reset()
+        obs = self._obs_dataset.reset()
+        return obs
+

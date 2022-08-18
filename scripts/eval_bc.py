@@ -48,68 +48,49 @@ FLAGS = flags.FLAGS
 
 
 def predict_actions(env, eval_dataset, obs_stack, agent):
-    new_obs = obs_stack.newest_observation
-    obs_hist = obs_stack.observation_history
+    new_obs = env.newest_observation
+    obs_hist = env.observation_history
     action = agent.get_action(new_obs, obs_hist, env)
     print('action:', action)
     full_action = {'linear_velocity': np.concatenate([action, [0.]], axis=0),
                    'angular_velocity': np.array([0., 0., 0.]),
                    'grip_open': 0}
-    obs, done, reward, info = env.step(full_action)
-    # if obs_dataset is not None:
-    #     obs = obs_dataset.step()
-    eval_dataset.append(action, obs)
-    obs_stack.append(obs)
+    obs, reward, done, info = env.step(full_action)
+    print('step returns', reward, done, info)
+    if done:
+        print('Received done')
+    if done and info['discard']:
+        eval_dataset.discard_episode()
+    else:
+        eval_dataset.append(action, obs, reward, info)
+    return done
 
-
-# def teleop_callback(teleop, env, dataset, obs_stack, agent, obs_dataset=None):
-#     if teleop.buttons[0]:  # A
-#         if obs_dataset is None:
-#             obs = env.render()
-#             print('Observation fields', obs)
-#         else:
-#             obs = obs_dataset.reset()
-#         dataset.reset(obs)
-#         obs_stack.reset(obs)
-#         print('Starting the episode')
-#         env.is_ready = True
-#     elif teleop.buttons[1] or teleop.buttons[2]:  # B, X
-#         env.is_ready = False
-#         env.reset()
-#         dataset.flag_success(teleop.buttons[2])
-#         dataset.save()
-#     elif teleop.buttons[3]:  # Y
-#         # Something else went wrong (not because of the policy): discard.
-#         env.is_ready = False
-#         env.reset()
-#         dataset.discard_episode()
-#         obs_stack.reset()
-        
 
 def start_episode(env, dataset, obs_stack, agent):
     rate = rospy.Rate(5)
-    # Wait to receive a first image after a reset.
-    while not env.is_ready and not rospy.is_shutdown():
-        # try:
-        rate.sleep()
-        # except rospy.ROSInterruptException:
-        #     print('Exiting')
-        #     sys.exit()
-    
-    prev_time = time.time()
-    while env.is_ready and not rospy.is_shutdown():
-        predict_actions(env, dataset, obs_stack, agent)
-        new_time = time.time()
-        print('dt =', new_time - prev_time)
-        prev_time = new_time
-        rate.sleep()
+    while not rospy.is_shutdown():
+        obs = env.reset()
+        dataset.reset(obs)
+        prev_time = time.time()
+        done = False
+        while not done and not rospy.is_shutdown():
+            done = predict_actions(env, dataset, obs_stack, agent)
+            new_time = time.time()
+            print('dt =', new_time - prev_time)
+            prev_time = new_time
+            rate.sleep()
+            if done:
+                print('Received done, calling env.reset')
+                obs = env.reset()
+                dataset.reset(obs)
+                done = False
 
 
 def load_saved_agent(env, main_camera, main_camera_crop, grayscale):
-    demos_file, ckpt_dir, summary_dir = train_utils.set_paths(FLAGS.demo_task)
     demo_task = FLAGS.demo_task or FLAGS.eval_task
+    demos_file, ckpt_dir, summary_dir = train_utils.set_paths(demo_task)
     visible_state_features = prl_ur5_utils.get_visible_features_for_task(
-      demo_task, FLAGS.visible_state)
+        demo_task, FLAGS.visible_state)
     image_size = FLAGS.image_size
 
     agent = bc_agent.BCAgent(
@@ -177,8 +158,12 @@ def main(_):
     random.seed(FLAGS.seed)
     np.random.seed(FLAGS.seed)
     tf.random.set_seed(FLAGS.seed)
+    eval_task = FLAGS.eval_task
+    visible_state_features = prl_ur5_utils.get_visible_features_for_task(
+        eval_task, FLAGS.visible_state)
     env, main_camera = env_utils.init_env(
-        FLAGS.sim, FLAGS.arm, FLAGS.input_type,
+        FLAGS.sim, FLAGS.arm, FLAGS.input_type, eval_task,
+        visible_state_features,
         num_input_frames=FLAGS.num_input_frames,
         crop=FLAGS.main_camera_crop,
         image_size=FLAGS.image_size,
@@ -186,9 +171,8 @@ def main(_):
         offline_dataset_path=FLAGS.offline_dataset_path,
         task_version=FLAGS.task_version)
     agent, obs_stack, demo_dataset, ckpt_dir = load_saved_agent(
-        env, main_camera, FLAGS.main_camera_crop, FLAGS.grayscale)
-
-    env.reset()
+        env, main_camera, FLAGS.main_camera_crop,
+        FLAGS.grayscale)
 
     timestamp = robotamer_utils.get_timestamp()
     eval_id = ''
@@ -197,14 +181,11 @@ def main(_):
     dataset_path = os.path.join(
         ckpt_dir, 'real_robot_eval', f'evalPush_{timestamp}{eval_id}.pkl')
     eval_dataset = datasets.EpisodeDataset(dataset_path)
-    # callback = functools.partial(
-    #     teleop_callback, env=env, dataset=eval_dataset, obs_stack=obs_stack,
-    #     agent=agent, obs_dataset=obs_dataset)
-    # rospy.Subscriber('joy_teleop', Joy, callback, queue_size=1)
 
-    while not rospy.is_shutdown():
-        print('Waiting for episode start')
+    try:
         start_episode(env, eval_dataset, obs_stack, agent)
+    except rospy.ROSInterruptException:
+        print('Exiting')
 
  
 if __name__ == '__main__':
