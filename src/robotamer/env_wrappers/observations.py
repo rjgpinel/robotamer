@@ -117,7 +117,7 @@ class ImageStackingWrapper(gym.Wrapper):
 class StaticDatasetWrapper(gym.Wrapper):
     """Env wrapper that replaces observations with fields from a dataset."""
 
-    def __init__(self, obs_dataset):
+    def __init__(self, env, obs_dataset):
         super().__init__(env)
         self._obs_dataset = obs_dataset
 

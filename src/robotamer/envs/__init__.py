@@ -47,7 +47,7 @@ envs = [
     dict(
         id="RealRobot-Cylinder-Push-v0",
         entry_point="robotamer.envs.cylinder_push:PushEnv",
-        max_episode_steps=600,
+        max_episode_steps=150,
         reward_threshold=1.0,
         kwargs={
             "version": "v0",
@@ -56,7 +56,7 @@ envs = [
     dict(
         id="RealRobot-Cylinder-Push-v1",
         entry_point="robotamer.envs.cylinder_push:PushEnv",
-        max_episode_steps=600,
+        max_episode_steps=150,
         reward_threshold=1.0,
         kwargs={
             "version": "v1",

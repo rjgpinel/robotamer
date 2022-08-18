@@ -39,10 +39,9 @@ def init_env(sim, arm, input_type, task, visible_state_features=[],
                    arm=arm,
                    version=task_version,
                    depth=True)
-    # TODO: Separate obs_dataset from teleoperation.
-    # if obs_dataset is not None:
-    #     env = observations.StaticDatasetWrapper(obs_dataset)
-    env = teleop.TeleopWrapper(env, obs_dataset)
+    env = teleop.TeleopWrapper(env)
+    if obs_dataset is not None:
+        env = observations.StaticDatasetWrapper(env, obs_dataset)
     image_key_in = f'rgb_{main_camera}_camera'
     image_key_out = 'rgb'
     env = observations.ImageObservationWrapper(

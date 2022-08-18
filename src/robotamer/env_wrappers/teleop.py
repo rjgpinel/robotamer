@@ -8,11 +8,10 @@ from sensor_msgs.msg import Joy
 class TeleopWrapper(gym.Wrapper):
     """Use teleop commands to define success and to decide when to reset."""
 
-    def __init__(self, env, obs_dataset=None, allow_teleop_actions=False,
-                 x_scale=0.05, y_scale=0.05):
+    def __init__(self, env, allow_teleop_actions=False, x_scale=0.05,
+                 y_scale=0.05):
         super().__init__(env)
         self.is_ready = False
-        self.obs_dataset = obs_dataset
         # If True, call env.step with joystick commands.
         self.allow_teleop_actions = allow_teleop_actions
         rospy.Subscriber('joy_teleop', Joy, self.teleop_callback, queue_size=1)
@@ -23,15 +22,16 @@ class TeleopWrapper(gym.Wrapper):
     def step(self, action):
         if not self.is_ready:
             print('Called step when env is resetting')
-        if self.obs_dataset is None:
-            obs, reward, done, info = self.env.step(action)
-        else:
-            obs = self.obs_dataset.step()
-            # TODO: Read from dataset if present.
-            reward = 0
-            done = False
-            info = {}
-        done = self.done
+        obs, reward, done, info = self.env.step(action)
+        # obs['rgb_charlie_camera'] = np.random.randint(256, shape=(720, 480), dtype=np.uint8)
+        # For overwriting success signal.
+        info.pop('success', None)
+        if 'TimeLimit.truncated' in info and info['TimeLimit.truncated']:
+            self.is_ready = False
+            print('Time limit exceeded: waiting for success signal (X / B / Y)')
+            while 'success' not in self.info:
+                self._rate.sleep()
+        done = done or self.done
         info = {**info, **self.info}
         return obs, reward, done, info
 
@@ -41,10 +41,8 @@ class TeleopWrapper(gym.Wrapper):
         print('Waiting for episode start')
         while not self.is_ready:
             self._rate.sleep()
-        if self.obs_dataset is None:
-            obs = self.env.render()
-        else:
-            obs = self.obs_dataset.reset()
+        obs = self.env.render()
+        # obs['rgb_charlie_camera'] = np.random.randint(256, shape=(720, 480), dtype=np.uint8)
         return obs
 
     def teleop_callback(self, teleop):

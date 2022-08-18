@@ -56,9 +56,7 @@ def predict_actions(env, eval_dataset, obs_stack, agent):
                    'angular_velocity': np.array([0., 0., 0.]),
                    'grip_open': 0}
     obs, reward, done, info = env.step(full_action)
-    print('step returns', reward, done, info)
-    if done:
-        print('Received done')
+    print('reward, done, info:', reward, done, info)
     if done and info['discard']:
         eval_dataset.discard_episode()
     else:
@@ -79,11 +77,12 @@ def start_episode(env, dataset, obs_stack, agent):
             print('dt =', new_time - prev_time)
             prev_time = new_time
             rate.sleep()
-            if done:
-                print('Received done, calling env.reset')
-                obs = env.reset()
-                dataset.reset(obs)
-                done = False
+        # if done:
+            # print('Received done, calling env.reset')
+            # obs = env.reset()
+            # dataset.reset(obs)
+            # prev_time = time.time()
+            # done = False
 
 
 def load_saved_agent(env, main_camera, main_camera_crop, grayscale):
