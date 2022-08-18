@@ -3,8 +3,13 @@ import gym
 from robotamer.core import datasets
 from robotamer.envs.pick import PickEnv
 
+from robotamer.env_wrappers import teleop
+from robotamer.env_wrappers import observations
 
-def init_env(sim, arm, offline_dataset_path=None, task_version='v0'):
+
+def init_env(sim, arm, input_type, num_input_frames=1, crop=None,
+             image_size=None, grayscale=False, offline_dataset_path=None,
+             task_version='v0'):
     obs_dataset = None
     # For testing with observations from offline dataset also on the real robot
     # (once we have seen in sim the actions are safe).
@@ -13,6 +18,7 @@ def init_env(sim, arm, offline_dataset_path=None, task_version='v0'):
         cam_list = []
         main_camera = 'left' if arm == 'right' else 'charlie'
         if offline_dataset_path is not None:
+            print('Loading dataset', offline_dataset_path)
             obs_dataset = datasets.OfflineDataset(offline_dataset_path)
     elif arm == 'right':
         cam_list = ['left_camera', 'spare_camera']
@@ -25,6 +31,13 @@ def init_env(sim, arm, offline_dataset_path=None, task_version='v0'):
                    arm=arm,
                    version=task_version,
                    depth=True)
-    env.is_ready = False
-    return env, main_camera, obs_dataset
+    # TODO: Separate obs_dataset from teleoperation.
+    env = teleop.TeleopWrapper(env, obs_dataset)
+    image_key_in = f'rgb_{main_camera}_camera'
+    image_key_out = 'rgb'
+    env = observations.ImageObservationWrapper(
+        env, image_key_in, image_key_out, crop, image_size, grayscale)
+    env = observations.ImageStackingWrapper(
+        env, image_key_out, num_input_frames)
+    return env, main_camera
 
