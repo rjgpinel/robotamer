@@ -1,9 +1,5 @@
-import copy
-import functools
 import os
-import pickle
 import random
-import sys
 import time
 
 import gym
@@ -22,9 +18,7 @@ from rrlfd.bc import flags as bc_flags
 
 from robotamer.core import datasets
 from robotamer.core import utils as robotamer_utils
-from robotamer.envs.pick import PickEnv
 from robotamer.rrlfd import env_utils
-from sensor_msgs.msg import Joy
 
 
 flags.DEFINE_bool('sim', False,

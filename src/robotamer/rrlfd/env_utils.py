@@ -3,8 +3,9 @@ import gym
 from robotamer.core import datasets
 from robotamer.envs.pick import PickEnv
 
-from robotamer.env_wrappers import teleop
 from robotamer.env_wrappers import observations
+from robotamer.env_wrappers import rewards
+from robotamer.env_wrappers import teleop
 
 
 def init_env(sim, arm, input_type, task, visible_state_features=[],
@@ -42,6 +43,7 @@ def init_env(sim, arm, input_type, task, visible_state_features=[],
     env = teleop.TeleopWrapper(env)
     if obs_dataset is not None:
         env = observations.StaticDatasetWrapper(env, obs_dataset)
+
     image_key_in = f'rgb_{main_camera}_camera'
     image_key_out = 'rgb'
     env = observations.ImageObservationWrapper(
@@ -50,5 +52,7 @@ def init_env(sim, arm, input_type, task, visible_state_features=[],
         env, [image_key_out] + visible_state_features, gripper_in_2d)
     env = observations.ImageStackingWrapper(
         env, image_key_out, num_input_frames)
+
+    env = rewards.SparseRewardWrapper(env)
     return env
 
