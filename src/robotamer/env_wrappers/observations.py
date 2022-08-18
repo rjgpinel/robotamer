@@ -7,23 +7,7 @@ import numpy as np
 from PIL import Image
 
 
-class ObservationWrapper(gym.Wrapper, abc.ABC):
-    """Base environment wrapper for modifying observations."""
-
-    @abc.abstractmethod
-    def _wrap_observation(self, obs):
-        """Modify observation obs from wrapped environment."""
-
-    def reset(self):
-        obs = self.env.reset()
-        return self._wrap_observation(obs)
-
-    def step(self, action):
-        obs, reward, done, info = self.env.step(action)
-        return self._wrap_observation(obs), reward, done, info
-
-
-class VisibleStateWrapper(ObservationWrapper):
+class VisibleStateWrapper(gym.ObservationWrapper):
     """Wrapper for preprocessing scalar observation fields."""
 
     def __init__(self, env, visible_state_features, gripper_in_2d=False):
@@ -31,7 +15,7 @@ class VisibleStateWrapper(ObservationWrapper):
         self._visible_keys = visible_state_features
         self._gripper_in_2d = gripper_in_2d
 
-    def _wrap_observation(self, obs):
+    def observation(self, obs):
         """Leave out keys not in visible keys and process gripper states."""
         wrapped_obs = {}
         for k in self._visible_keys:
@@ -43,7 +27,7 @@ class VisibleStateWrapper(ObservationWrapper):
         return wrapped_obs
 
 
-class ImageObservationWrapper(ObservationWrapper):
+class ImageObservationWrapper(gym.ObservationWrapper):
     """Wrapper supporting cropped, resized and grayscaled image observations."""
 
     def __init__(self, env, image_key_in, image_key_out=None, crop=None,
@@ -58,7 +42,7 @@ class ImageObservationWrapper(ObservationWrapper):
             else image_size)
         self.grayscale = grayscale
     
-    def _wrap_observation(self, obs):
+    def observation(self, obs):
         wrapped_obs = {
             k: copy.deepcopy(v) for k, v in obs.items()
             if k != self.image_key_in}
