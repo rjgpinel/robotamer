@@ -43,8 +43,10 @@ class PushEnv(BaseEnv):
 
     def step(self, action):
         if not isinstance(action, dict):
+            action = np.clip(
+                action, self.action_space.low, self.action_space.high)
             action = {
-                'linear_velocity': np.concatenate([action, [0]]),
+                'linear_velocity': np.concatenate([action, [0.]]),
                 'angular_velocity': np.zeros(3),
             }
         return super().step(action)
