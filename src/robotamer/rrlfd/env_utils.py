@@ -8,7 +8,7 @@ from robotamer.env_wrappers import rewards
 from robotamer.env_wrappers import teleop
 
 
-def init_env(sim, arm, input_type, task, visible_state_features=[],
+def init_env(task, sim, arm, input_type, visible_state_features=[],
              num_input_frames=1, crop=None, image_size=None, grayscale=False,
              offline_dataset_path=None, task_version='v0'):
     obs_dataset = None
@@ -40,6 +40,7 @@ def init_env(sim, arm, input_type, task, visible_state_features=[],
                    arm=arm,
                    version=task_version,
                    depth=True)
+    import pdb; pdb.set_trace()
     env = teleop.TeleopWrapper(env)
     if obs_dataset is not None:
         env = observations.StaticDatasetWrapper(env, obs_dataset)
@@ -48,8 +49,12 @@ def init_env(sim, arm, input_type, task, visible_state_features=[],
     image_key_out = 'rgb'
     env = observations.ImageObservationWrapper(
         env, image_key_in, image_key_out, crop, image_size, grayscale)
+    # TODO: Keep all keys? Or make eval dataset another wrapper?
+    # Would make sense to have to file before stacking!
     env = observations.VisibleStateWrapper(
         env, [image_key_out] + visible_state_features, gripper_in_2d)
+    # TODO: Be careful about whether to duplicate obs at the start of the episode.
+    # bc_agent takes care of this but not sure if non-residual RL agent does.
     env = observations.ImageStackingWrapper(
         env, image_key_out, num_input_frames)
 

@@ -74,6 +74,7 @@ def start_episode(env, dataset, agent):
     rate = rospy.Rate(5)
     while not rospy.is_shutdown():
         obs = attempt_reset(env)
+        # import pdb; pdb.set_trace()
         dataset.reset(obs)
         prev_time = time.time()
         done = False
@@ -158,27 +159,27 @@ def main(_):
     eval_task = FLAGS.eval_task
     visible_state_features = prl_ur5_utils.get_visible_features_for_task(
         eval_task, FLAGS.visible_state)
-    env = env_utils.init_env(
-        FLAGS.sim, FLAGS.arm, FLAGS.input_type, eval_task,
-        visible_state_features,
-        num_input_frames=FLAGS.num_input_frames,
-        crop=FLAGS.main_camera_crop,
-        image_size=FLAGS.image_size,
-        grayscale=FLAGS.grayscale,
-        offline_dataset_path=FLAGS.offline_dataset_path,
-        task_version=FLAGS.task_version)
-    agent, demo_dataset, ckpt_dir = load_saved_agent(
-        env, FLAGS.main_camera_crop, FLAGS.grayscale)
-
-    timestamp = robotamer_utils.get_timestamp()
-    eval_id = ''
-    if FLAGS.eval_id:
-        eval_id = f'_{FLAGS.eval_id}'
-    dataset_path = os.path.join(
-        ckpt_dir, 'real_robot_eval', f'evalPush_{timestamp}{eval_id}.pkl')
-    eval_dataset = datasets.EpisodeDataset(dataset_path)
-
     try:
+        env = env_utils.init_env(
+            eval_task, FLAGS.sim, FLAGS.arm, FLAGS.input_type,
+            visible_state_features,
+            num_input_frames=FLAGS.num_input_frames,
+            crop=FLAGS.main_camera_crop,
+            image_size=FLAGS.image_size,
+            grayscale=FLAGS.grayscale,
+            offline_dataset_path=FLAGS.offline_dataset_path,
+            task_version=FLAGS.task_version)
+        agent, demo_dataset, ckpt_dir = load_saved_agent(
+            env, FLAGS.main_camera_crop, FLAGS.grayscale)
+
+        timestamp = robotamer_utils.get_timestamp()
+        eval_id = ''
+        if FLAGS.eval_id:
+            eval_id = f'_{FLAGS.eval_id}'
+        dataset_path = os.path.join(
+            ckpt_dir, 'real_robot_eval', f'evalPush_{timestamp}{eval_id}.pkl')
+        eval_dataset = datasets.EpisodeDataset(dataset_path)
+
         start_episode(env, eval_dataset, agent)
     except rospy.ROSInterruptException:
         print('Exiting')

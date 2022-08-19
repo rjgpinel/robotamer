@@ -1,6 +1,7 @@
 import functools
 import gym
 import rospy
+import tf2_ros
 
 import numpy as np
 
@@ -122,8 +123,8 @@ class BaseEnv(gym.Env):
             "gripper_state": Box(shape=()),
         })
         for cam_name in self.cam_list:
-            height = CAM_INFO[cam_name].height
-            width = CAM_INFO[cam_name].width
+            height = CAM_INFO[cam_name]["height"]
+            width = CAM_INFO[cam_name]["width"]
             obs_space[f"rgb_{cam_name}"] = Img(shape=(height, width, 3))
             if self._depth:
                 obs_space[f"depth_{cam_name}"] = Box(shape=(height, width, 1))
@@ -206,9 +207,12 @@ class BaseEnv(gym.Env):
         self.robot.reset(open_gripper=open_gripper)
 
     def stop_current_movement(self):
-        for _ in range(3):
-            self.step({"linear_velocity": np.array([0., 0., 0.]),
-                       "angular_velocity": np.array([0., 0., 0.])})
+        try:
+            for _ in range(3):
+                self.step({"linear_velocity": np.array([0., 0., 0.]),
+                           "angular_velocity": np.array([0., 0., 0.])})
+        except tf2_ros.TransformException:
+            pass
 
     def reset(self, **kwargs):
         self.stop_current_movement()

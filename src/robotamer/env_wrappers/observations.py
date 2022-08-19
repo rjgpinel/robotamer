@@ -9,6 +9,8 @@ import numpy as np
 from gym import spaces
 from PIL import Image
 
+from robotamer.envs import utils
+
 
 class VisibleStateWrapper(gym.ObservationWrapper):
     """Wrapper for preprocessing scalar observation fields."""
@@ -17,6 +19,21 @@ class VisibleStateWrapper(gym.ObservationWrapper):
         super().__init__(env)
         self._visible_keys = visible_state_features
         self._gripper_in_2d = gripper_in_2d
+
+    @property
+    def observation_space(self):
+        obs_space = spaces.Dict({
+            k: copy.deepcopy(self.env.observation_space[k])
+            for k in self._visible_keys
+        })
+        if self._gripper_in_2d:
+            for k in self._visible_keys:
+                if k in ['gripper_pos', 'gripper_trans_velocity']:
+                    obs_space[k] = type(obs_space[k])(
+                        shape=(min(obs_space[k].shape[0], 2),),
+                        low=obs_space[k].low[:2],
+                        high=obs_space[k].high[:2])
+        return obs_space
 
     def observation(self, obs):
         """Leave out keys not in visible keys and process gripper states."""
@@ -47,12 +64,12 @@ class ImageObservationWrapper(gym.ObservationWrapper):
 
     @property
     def observation_space(self):
-        obs_space = copy.deepcopy(self.env.observation_space)
+        obs_space = dict(copy.deepcopy(self.env.observation_space))
         img_space = obs_space.pop(self.image_key_in)
         img_height, img_width = img_space.shape[:2]
         if self.crop is not None:
             crop = self.crop
-            dummy_img = np.empty(img_shape.shape)
+            dummy_img = np.empty(img_space.shape)
             dummy_img = dummy_img[crop[0]:crop[1], crop[2]:crop[3]]
             img_height, img_width = dummy_img.shape[:2]
         if self.image_size:
@@ -61,7 +78,7 @@ class ImageObservationWrapper(gym.ObservationWrapper):
         obs_space[self.image_key_out] = spaces.Box(
             shape=(img_height, img_width, num_channels),
             low=0, high=255, dtype=np.uint8)
-        return obs_space
+        return spaces.Dict(obs_space)
 
     def observation(self, obs):
         wrapped_obs = {
@@ -134,20 +151,12 @@ class StaticDatasetWrapper(gym.Wrapper):
         super().__init__(env)
         self._obs_dataset = obs_dataset
         self.cam_list = cam_list
-        self.observation = self.reset()
+        self.observation = self._obs_dataset.reset()
 
     @property
     def observation_space(self):
-        obs_space = spaces.Dict({})
-        Box = functools.partial(spaces.Box, low=-np.inf, high=np.inf)
-        Img = functools.partial(spaces.Box, low=0, high=255, dtype=np.uint8)
-        for k, v in self.observation.items():
-            if v.dtype == np.uint8:
-                obs_space[k] = Img(shape=v.shape)
-            else:
-                obs_space[k] = Box(shape=v.shape)
+        obs_space = utils.convert_to_spec(self.observation)
         return obs_space
-
 
     def step(self, action):
         obs, reward, done, info = self.env.step(action)
