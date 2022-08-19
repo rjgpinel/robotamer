@@ -2,8 +2,11 @@
 
 import abc
 import copy
+import functools
 import gym
 import numpy as np
+
+from gym import spaces
 from PIL import Image
 
 
@@ -41,7 +44,25 @@ class ImageObservationWrapper(gym.ObservationWrapper):
             (image_size, image_size) if isinstance(image_size, int)
             else image_size)
         self.grayscale = grayscale
-    
+
+    @property
+    def observation_space(self):
+        obs_space = copy.deepcopy(self.env.observation_space)
+        img_space = obs_space.pop(self.image_key_in)
+        img_height, img_width = img_space.shape[:2]
+        if self.crop is not None:
+            crop = self.crop
+            dummy_img = np.empty(img_shape.shape)
+            dummy_img = dummy_img[crop[0]:crop[1], crop[2]:crop[3]]
+            img_height, img_width = dummy_img.shape[:2]
+        if self.image_size:
+            img_height, img_width = self.image_size
+        num_channels = 1 if self.grayscale else img_space.shape[2]
+        obs_space[self.image_key_out] = spaces.Box(
+            shape=(img_height, img_width, num_channels),
+            low=0, high=255, dtype=np.uint8)
+        return obs_space
+
     def observation(self, obs):
         wrapped_obs = {
             k: copy.deepcopy(v) for k, v in obs.items()
@@ -50,11 +71,11 @@ class ImageObservationWrapper(gym.ObservationWrapper):
         if self.crop is not None:
             crop = self.crop
             img = img[crop[0]:crop[1], crop[2]:crop[3]]
-        if self.grayscale or self.image_size:
+        if self.grayscale or self.image_size is not None:
             img = Image.fromarray(img)
             if self.grayscale:
                 img = img.convert('L')
-            if self.image_size:
+            if self.image_size is not None:
                 img = img.resize(size=self.image_size)
             img = np.array(img)
         wrapped_obs[self.image_key_out] = img
@@ -69,6 +90,14 @@ class ImageStackingWrapper(gym.Wrapper):
         self.observations = []
         self.image_key = image_key
         self.stack_length = stack_length
+
+    @property
+    def observation_space(self):
+        obs_space = copy.deepcopy(self.env.observation_space)
+        obs_space[self.image_key] = spaces.Box(
+            shape=(self.stack_length, *obs_space[self.image_key].shape),
+            low=0, high=255, dtype=np.uint8)
+        return obs_space
 
     def reset(self):
         obs = self.env.reset()
@@ -101,9 +130,24 @@ class ImageStackingWrapper(gym.Wrapper):
 class StaticDatasetWrapper(gym.Wrapper):
     """Env wrapper that replaces observations with fields from a dataset."""
 
-    def __init__(self, env, obs_dataset):
+    def __init__(self, env, obs_dataset, cam_list=[]):
         super().__init__(env)
         self._obs_dataset = obs_dataset
+        self.cam_list = cam_list
+        self.observation = self.reset()
+
+    @property
+    def observation_space(self):
+        obs_space = spaces.Dict({})
+        Box = functools.partial(spaces.Box, low=-np.inf, high=np.inf)
+        Img = functools.partial(spaces.Box, low=0, high=255, dtype=np.uint8)
+        for k, v in self.observation.items():
+            if v.dtype == np.uint8:
+                obs_space[k] = Img(shape=v.shape)
+            else:
+                obs_space[k] = Box(shape=v.shape)
+        return obs_space
+
 
     def step(self, action):
         obs, reward, done, info = self.env.step(action)

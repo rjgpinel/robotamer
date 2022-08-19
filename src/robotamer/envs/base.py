@@ -1,8 +1,10 @@
+import functools
 import gym
 import rospy
 
 import numpy as np
 
+from gym import spaces
 from collections import deque
 from geometry_msgs.msg import Vector3
 from math import pi
@@ -96,8 +98,6 @@ class BaseEnv(gym.Env):
                 self.cam_info[f"info_{cam_name}"] = CAM_INFO[cam_name]
             self.cam_info[f"full_info_{cam_name}"] = (
                 self.robot.cameras[cam_name].info)
-        # self.cam_intrinsics = {}
-        # for cam_name in cam_list:
             self.cam_info[f"intrinsics_{cam_name}"] = (
                 self.robot.cameras[cam_name].intrinsics)
         self._np_random = np.random
@@ -109,6 +109,30 @@ class BaseEnv(gym.Env):
         self.velocity_subscriber = rospy.Subscriber(
             f"{arm}_eef_velocity", Vector3, self.get_eef_velocity, queue_size=1)
         self.eef_velocity = np.array([0., 0., 0.])
+
+    @property
+    def observation_space(self):
+        Box = functools.partial(spaces.Box, low=-np.inf, high=np.inf)
+        Img = functools.partial(spaces.Box, low=0, high=255, dtype=np.uint8)
+        obs_space = spaces.Dict({
+            "gripper_pos": Box(shape=(3,)),
+            "gripper_quat": Box(shape=(3,)),
+            "gripper_trans_velocity": Box(shape=(3,)),
+            "grip_velocity": Box(shape=()),
+            "gripper_state": Box(shape=()),
+        })
+        for cam_name in self.cam_list:
+            height = CAM_INFO[cam_name].height
+            width = CAM_INFO[cam_name].width
+            obs_space[f"rgb_{cam_name}"] = Img(shape=(height, width, 3))
+            if self._depth:
+                obs_space[f"depth_{cam_name}"] = Box(shape=(height, width, 1))
+            # self.cam_info[f"info_{cam_name}"] = spaces.Dict({CAM_INFO[cam_name]})
+            # self.cam_info[f"full_info_{cam_name}"] = (
+            #     self.robot.cameras[cam_name].info)
+            # self.cam_info[f"intrinsics_{cam_name}"] = (
+            #     self.robot.cameras[cam_name].intrinsics)
+        return obs_space
 
     def seed(self, seed):
         np_random, seed = seeding.np_random(seed)

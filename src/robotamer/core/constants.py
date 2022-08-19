@@ -10,11 +10,15 @@ BRAVO_INFO = {
     "pos": np.array([-0.494061, 0.692729, 0.400215]),
     "euler": np.array([1.03091702, 0.00556305, -3.11407431]),
     "fovy": 42.5,
+    "height": 720,
+    "width": 1280,
 }
 CHARLIE_INFO = {
     "pos": np.array([-1.201099, 0.005, 0.403127]),
     "euler": np.array([1.04368278, -0.00250582, -1.56810664]),
     "fovy": 42.5,
+    "height": 480,
+    "width": 640,
 }
 CAM_INFO = {"bravo_camera": BRAVO_INFO, "charlie_camera": CHARLIE_INFO}
 

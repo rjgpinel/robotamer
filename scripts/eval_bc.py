@@ -120,7 +120,7 @@ def load_saved_agent(env, main_camera_crop, grayscale):
         env=env,
         late_fusion=FLAGS.late_fusion,
         init_scheme=FLAGS.weight_init_scheme,
-        num_input_channels=1 if FLAGS.grayscale else 3)
+        grayscale=FLAGS.grayscale)
 
     # For setting normalization stats.
     dataset = train_utils.prepare_demos(
