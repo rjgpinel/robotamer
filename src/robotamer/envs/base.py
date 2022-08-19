@@ -282,9 +282,9 @@ class BaseEnv(gym.Env):
 
             if f"info_{cam_name}" in self.cam_info:
                 obs[f"info_{cam_name}"] = self.cam_info[f"info_{cam_name}"]
-            if f"full_info_{cam_name}" in self.cam_info:
-                obs[f"full_info_{cam_name}"] = (
-                    self.cam_info[f"full_info_{cam_name}"])
+            # if f"full_info_{cam_name}" in self.cam_info:
+            #     obs[f"full_info_{cam_name}"] = (
+            #         self.cam_info[f"full_info_{cam_name}"])
             # if f"intrinsics_{cam_name}" in self.cam_info:
             #     obs[f"intrinsics_{cam_name}"] = (
             #         self.cam_info[f"intrinsics_{cam_name}"])

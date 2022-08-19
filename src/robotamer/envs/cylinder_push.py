@@ -40,3 +40,11 @@ class PushEnv(BaseEnv):
         else:
             obs = self.reset_eef()
         return obs
+
+    def step(self, action):
+        if not isinstance(action, dict):
+            action = {
+                'linear_velocity': np.concatenate([action, [0]]),
+                'angular_velocity': np.zeros(3),
+            }
+        return super().step(action)

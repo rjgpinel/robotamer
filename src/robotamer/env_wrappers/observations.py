@@ -151,11 +151,13 @@ class StaticDatasetWrapper(gym.Wrapper):
         super().__init__(env)
         self._obs_dataset = obs_dataset
         self.cam_list = cam_list
-        self.observation = self._obs_dataset.reset()
+        self.example_obs = self._obs_dataset.reset()
+        self.example_obs = {k: v for k, v in self.example_obs.items()
+                            if not 'full_info_' in k}
 
     @property
     def observation_space(self):
-        obs_space = utils.convert_to_spec(self.observation)
+        obs_space = utils.convert_to_spec(self.example_obs)
         return obs_space
 
     def step(self, action):

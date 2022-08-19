@@ -84,12 +84,6 @@ def start_episode(env, dataset, agent):
             print('dt =', new_time - prev_time)
             prev_time = new_time
             rate.sleep()
-        # if done:
-            # print('Received done, calling env.reset')
-            # obs = env.reset()
-            # dataset.reset(obs)
-            # prev_time = time.time()
-            # done = False
 
 
 def load_saved_agent(env, main_camera_crop, grayscale):
