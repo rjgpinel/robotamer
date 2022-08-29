@@ -40,7 +40,7 @@ flags.DEFINE_string('offline_dataset_path', None,
 FLAGS = flags.FLAGS
 
 
-def predict_actions(env, eval_dataset, agent):
+def predict_actions(env, agent):
     new_obs = env.newest_observation
     obs_hist = env.observation_history
     action = agent.get_action(new_obs, obs_hist, env)
@@ -50,10 +50,6 @@ def predict_actions(env, eval_dataset, agent):
                    'grip_open': 0}
     obs, reward, done, info = env.step(full_action)
     print('reward, done, info:', reward, done, info)
-    if done and info['discard']:
-        eval_dataset.discard_episode()
-    else:
-        eval_dataset.append(action, obs, reward, info)
     return done
 
 
@@ -70,25 +66,26 @@ def attempt_reset(env, max_attempts=2):
     return obs
 
 
-def start_episode(env, dataset, agent):
+def start_episode(env, agent):
     rate = rospy.Rate(5)
     while not rospy.is_shutdown():
         obs = attempt_reset(env)
-        # import pdb; pdb.set_trace()
-        dataset.reset(obs)
+        times = []
         prev_time = time.time()
         done = False
         while not done and not rospy.is_shutdown():
-            done = predict_actions(env, dataset, agent)
+            done = predict_actions(env, agent)
             new_time = time.time()
             print('dt =', new_time - prev_time)
+            times.append(new_time - prev_time)
             prev_time = new_time
             rate.sleep()
+        print('Episode mean dt =', np.mean(times))
 
 
 def load_saved_agent(env, main_camera_crop, grayscale):
     demo_task = FLAGS.demo_task or FLAGS.eval_task
-    demos_file, ckpt_dir, summary_dir = train_utils.set_paths(demo_task)
+    demos_file, ckpt_dir, _ = train_utils.set_paths(demo_task)
     visible_state_features = prl_ur5_utils.get_visible_features_for_task(
         demo_task, FLAGS.visible_state)
     image_size = FLAGS.image_size
@@ -153,6 +150,12 @@ def main(_):
     eval_task = FLAGS.eval_task
     visible_state_features = prl_ur5_utils.get_visible_features_for_task(
         eval_task, FLAGS.visible_state)
+    demo_task = FLAGS.demo_task or FLAGS.eval_task
+    _, ckpt_dir, _ = train_utils.set_paths(demo_task)
+    timestamp = robotamer_utils.get_timestamp()
+    eval_id = f'_{FLAGS.eval_id}' if FLAGS.eval_id else ''
+    dataset_path = os.path.join(
+        ckpt_dir, 'real_robot_eval', f'evalPush_{timestamp}{eval_id}.pkl')
     try:
         env = env_utils.init_env(
             eval_task, FLAGS.sim, FLAGS.arm, FLAGS.input_type,
@@ -162,19 +165,12 @@ def main(_):
             image_size=FLAGS.image_size,
             grayscale=FLAGS.grayscale,
             offline_dataset_path=FLAGS.offline_dataset_path,
+            out_dataset_path=dataset_path,
             task_version=FLAGS.task_version)
         agent, demo_dataset, ckpt_dir = load_saved_agent(
             env, FLAGS.main_camera_crop, FLAGS.grayscale)
 
-        timestamp = robotamer_utils.get_timestamp()
-        eval_id = ''
-        if FLAGS.eval_id:
-            eval_id = f'_{FLAGS.eval_id}'
-        dataset_path = os.path.join(
-            ckpt_dir, 'real_robot_eval', f'evalPush_{timestamp}{eval_id}.pkl')
-        eval_dataset = datasets.EpisodeDataset(dataset_path)
-
-        start_episode(env, eval_dataset, agent)
+        start_episode(env, agent)
     except rospy.ROSInterruptException:
         print('Exiting')
 
