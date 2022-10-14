@@ -8,7 +8,7 @@ class SweepEnv(BaseEnv):
 
     def __init__(self, cam_list, depth=False):
         super(SweepEnv, self).__init__(cam_list=cam_list, depth=depth)
-        self.gripper_workspace[0, 2] = 0.05
+        self.gripper_workspace[0, 2] = 0.03
 
     def _reset(self, **kwargs):
         super()._reset(gripper_orn=[pi, 0, 0], open_gripper=False)

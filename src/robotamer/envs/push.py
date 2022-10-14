@@ -22,7 +22,7 @@ class PushEnv(BaseEnv):
         self.goal_workspace[1, 0] = workspace_x_center
         self.goal_workspace += np.array([[0.0, 0.08, 0.01], [-0.01, -0.08, -0.01]])
 
-        self.default_gripper_height = 0.0225
+        self.default_gripper_height = 0.035
         self.min_x_distance = 0.0255
         self.min_y_distance = 0.06
 

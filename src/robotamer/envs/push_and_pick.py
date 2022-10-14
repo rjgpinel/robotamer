@@ -9,6 +9,7 @@ class PushAndPickEnv(BaseEnv):
     def __init__(self, cam_list, depth=False):
         super(PushAndPickEnv, self).__init__(cam_list=cam_list, depth=depth)
         self.safe_height = 0.1
+        self.gripper_workspace[0, 2] = 0.07
 
     def set_scene(self, sim_env):
         sim_obs = sim_env.observe()
