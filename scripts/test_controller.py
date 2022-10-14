@@ -14,20 +14,20 @@ def main():
     # pickenv = PickEnv([])
 
     gripper_pos = [-0.40, 0, 0.1]
-    real_obs = pick_env.reset(gripper_pos=gripper_pos)
+    real_obs = pick_env.reset(gripper_pos=gripper_pos, open_gripper=False)
 
     error_nb = 0
     time_prev = time.time()
     time_list = []
 
-    # input("Gripper should be good...")
+    # # input("Gripper should be good...")
 
     step_size = 0.1
-    n_step = 10 / step_size
-    for i in range(int(n_step / 1.5)):
+    n_step = 100 / step_size
+    for i in range(int(n_step)):
         real_obs = pick_env.step(
             {
-                "linear_velocity": np.array([0.0, 0, 0.0]),
+                "linear_velocity": np.array([0.0, 0, -0.01]),
                 "angular_velocity": np.array([0.0, 0.0, 3.14 / 10]),
                 "grip_open": 1,
             }
