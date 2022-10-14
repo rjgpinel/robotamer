@@ -29,7 +29,7 @@ from trajectory_msgs.msg import JointTrajectory
 
 
 class Robot:
-    def __init__(self, workspace, cam_list, depth=False, cam_async=False):
+    def __init__(self, workspace, cam_list, depth=False, cam_async=True):
         # Create ros node
         moveit_commander.roscpp_initialize(sys.argv)
 
@@ -88,7 +88,7 @@ class Robot:
                     self.depth_cameras[cam_name] = Camera(
                         f"{cam_name}/aligned_depth_to_color/image_raw"
                     )
-
+        # self.scene.add_box('pick_box', make_pose([0.02, 0.0, 0.075],[0, 0, 0, 1],frame_id=ROBOT_BASE_FRAME), size=[0.2 , 0.55, 0.15])
         # Grasped flag
         self._grasped = False
         self._grip_velocity = 2
@@ -276,6 +276,7 @@ class Robot:
     def go_to_pose(self, gripper_pos, gripper_orn, cartesian=True):
         gripper_pos = self._limit_position(gripper_pos)
         gripper_pose = make_pose(gripper_pos, gripper_orn)
+        print(gripper_pos)
         success = False
         if cartesian:
             left_path, left_fraction = self.commander.left_arm.compute_cartesian_path(
