@@ -9,6 +9,7 @@ from math import pi
 from gym.utils import seeding
 from prl_ur5_demos.utils import make_pose
 from robotamer.core.robot import Robot
+from robotamer.envs.utils import quat_to_euler
 from robotamer.core.constants import (
     REAL_DT,
     SIM_DT,
@@ -18,7 +19,7 @@ from robotamer.core.constants import (
     JUMP_THRESHOLD,
 )
 
-WORKSPACE = np.array([[-0.695, -0.175, 0.00], [-0.295, 0.175, 0.2]])
+WORKSPACE = np.array([[-0.695, -0.175, 0.02], [-0.295, 0.175, 0.2]])
 
 GRIPPER_HEIGHT_INIT = np.array([0.06, 0.10])
 
@@ -54,7 +55,6 @@ class BaseEnv(gym.Env):
         # Depth flag
         self._depth = depth
         self._grip_history = deque(maxlen=5)
-        # import pudb; pudb.set_trace()
 
         # Cam info
         self.cam_info = {
@@ -104,9 +104,11 @@ class BaseEnv(gym.Env):
             grip_open_mean = np.mean(self._grip_history)
 
             if grip_open_mean > 0:
-                self.robot.move_gripper("open", wait=False)
+                self.robot.move_gripper("open", wait=True)
+                # self.robot.move_gripper("open", wait=False)
             else:
-                self.robot.move_gripper("close", wait=False)
+                self.robot.move_gripper("close", wait=True)
+                # self.robot.move_gripper("close", wait=False)
 
         processed_action["linear_velocity"] = (
             action["linear_velocity"] * SIM_DT / REAL_DT
@@ -157,6 +159,7 @@ class BaseEnv(gym.Env):
         gripper_pose = self.robot.eef_pose()
         obs["gripper_pos"] = np.array(gripper_pose[0])
         obs["gripper_quat"] = np.array(gripper_pose[1])
+        obs["gripper_theta"] = quat_to_euler(np.array(gripper_pose[1]), False)[-1]
         obs["grip_velocity"] = self.robot._grip_velocity
         obs["gripper_state"] = self.robot._grasped
 
