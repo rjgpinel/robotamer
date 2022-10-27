@@ -19,8 +19,6 @@ from robotamer.core.constants import (
     JUMP_THRESHOLD,
 )
 
-WORKSPACE = np.array([[-0.695, -0.175, 0.01], [-0.295, 0.175, 0.2]])
-
 GRIPPER_HEIGHT_INIT = np.array([0.06, 0.10])
 
 LEFT_DEFAULT_CONF = [
@@ -35,12 +33,16 @@ LEFT_DEFAULT_CONF = [
 
 class BaseEnv(gym.Env):
     def __init__(
-        self, cam_list=["bravo_camera", "charlie_camera"], depth=False, cam_info=None
+        self,
+        cam_list=["bravo_camera", "charlie_camera"],
+        depth=False,
+        cam_info=None,
+        workspace=np.array([[-0.695, -0.175, 0.01], [-0.295, 0.175, 0.2]]),
     ):
         rospy.init_node("env_node", log_level=rospy.INFO)
 
         # Workspace definition
-        self.workspace = WORKSPACE
+        self.workspace = workspace
         self.gripper_workspace = self.workspace.copy()
         self.gripper_workspace[:, 2] = GRIPPER_HEIGHT_INIT
 
@@ -83,7 +85,6 @@ class BaseEnv(gym.Env):
 
         if gripper_orn is None:
             gripper_orn = [pi, 0, pi / 2]
-
 
         success = self.robot.go_to_pose(gripper_pos, gripper_orn, cartesian=True)
 
@@ -171,9 +172,9 @@ class BaseEnv(gym.Env):
 
         # counter =  self.robot.cameras[self.robot.cam_list[0]].counter
         # if counter % 50 == 0 and counter >0:
-            # delay = np.abs(np.array(self.timestamp["charlie_camera"]) - np.array(self.timestamp["bravo_camera"]))
-            # print(f"Diff mean cam {delay.mean()*1000}")
-            # print(f"Diff std cam {delay.std()*1000}")
+        # delay = np.abs(np.array(self.timestamp["charlie_camera"]) - np.array(self.timestamp["bravo_camera"]))
+        # print(f"Diff mean cam {delay.mean()*1000}")
+        # print(f"Diff std cam {delay.std()*1000}")
         # TODO: Add joints state
         return obs
 
