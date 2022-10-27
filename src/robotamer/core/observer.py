@@ -41,6 +41,9 @@ class CameraAsync:
         if rospy.core.is_shutdown():
             raise rospy.exceptions.ROSInterruptException("rospy shutdown")
 
+        # self.counter = 0
+        # self.times = []
+
     def save_last_image(self, msg):
         self._im_msg = msg
 
@@ -48,9 +51,19 @@ class CameraAsync:
         """Return next received image as numpy array in specified encoding.
         @param timeout: time in seconds
         """
+        # delay_t = rospy.Time.now() - self._im_msg.header.stamp
+
+        # self.times.append(delay_t.to_sec())
         data = np.frombuffer(self._im_msg.data, dtype=dtype)
         data = data.reshape((self._im_msg.height, self._im_msg.width, -1))
-        return data
+
+        # self.counter += 1
+        # if self.counter % 50 == 0 and self.counter >0:
+        #     print(f"Topic: {self._topic} - Mean: {np.mean(self.times)*1000}")
+        #     print(f"Topic: {self._topic} - Std: {np.std(self.times)*1000}")
+        #     self.times=[]
+
+        return data, self._im_msg.header.stamp.to_sec()
 
 
 class JointStateRecorder:

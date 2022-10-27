@@ -19,7 +19,7 @@ from robotamer.core.constants import (
     JUMP_THRESHOLD,
 )
 
-WORKSPACE = np.array([[-0.695, -0.175, 0.02], [-0.295, 0.175, 0.2]])
+WORKSPACE = np.array([[-0.695, -0.175, 0.01], [-0.295, 0.175, 0.2]])
 
 GRIPPER_HEIGHT_INIT = np.array([0.06, 0.10])
 
@@ -64,6 +64,8 @@ class BaseEnv(gym.Env):
 
         self.safe_height = GRIPPER_HEIGHT_INIT[-1]
 
+        # self.timestamp = {}
+
     def seed(self, seed):
         np_random, seed = seeding.np_random(seed)
         self._np_random = np_random
@@ -81,6 +83,7 @@ class BaseEnv(gym.Env):
 
         if gripper_orn is None:
             gripper_orn = [pi, 0, pi / 2]
+
 
         success = self.robot.go_to_pose(gripper_pos, gripper_orn, cartesian=True)
 
@@ -143,7 +146,10 @@ class BaseEnv(gym.Env):
 
         for cam_name in self.robot.cam_list:
             cam = self.robot.cameras[cam_name]
-            obs[f"rgb_{cam_name}"] = cam.record_image(dtype=np.uint8)
+            obs[f"rgb_{cam_name}"], cam_t = cam.record_image(dtype=np.uint8)
+            # if cam_name not in self.timestamp:
+            #     self.timestamp[cam_name] = []
+            # self.timestamp[cam_name].append(cam_t)
 
             if self._depth:
                 depth_cam = self.robot.depth_cameras[cam_name]
@@ -163,6 +169,11 @@ class BaseEnv(gym.Env):
         obs["grip_velocity"] = self.robot._grip_velocity
         obs["gripper_state"] = self.robot._grasped
 
+        # counter =  self.robot.cameras[self.robot.cam_list[0]].counter
+        # if counter % 50 == 0 and counter >0:
+            # delay = np.abs(np.array(self.timestamp["charlie_camera"]) - np.array(self.timestamp["bravo_camera"]))
+            # print(f"Diff mean cam {delay.mean()*1000}")
+            # print(f"Diff std cam {delay.std()*1000}")
         # TODO: Add joints state
         return obs
 
