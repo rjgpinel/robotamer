@@ -276,7 +276,6 @@ class Robot:
     def go_to_pose(self, gripper_pos, gripper_orn, cartesian=True):
         gripper_pos = self._limit_position(gripper_pos)
         gripper_pose = make_pose(gripper_pos, gripper_orn)
-        print(gripper_pos)
         success = False
         if cartesian:
             left_path, left_fraction = self.commander.left_arm.compute_cartesian_path(
