@@ -33,6 +33,7 @@ def get_args_parser():
     parser.add_argument("--init-seed", default=50000, type=int)
     parser.add_argument("--cam-list", default="", type=str)
     parser.add_argument("--env-name", default="Pick-v0", type=str)
+    parser.add_argument("--num-distractors", default=2, type=int)
     return parser
 
 
@@ -54,7 +55,7 @@ def save_stats(stats, output_dir):
         "cam_list": stats["cam_list"],
     }
     for k, v in stats.items():
-        if k != "cam_list":
+        if k != "cam_list" and k!= "num_cubes":
             processed_stats[k] = {
                 "mean": np.mean(v, axis=0),
                 "std": np.std(v, axis=0),
@@ -73,7 +74,7 @@ def main(args):
     sim_output_dir.mkdir(parents=True, exist_ok=True)
 
     sim_env_name = args.env_name
-    sim_env = gym.make(sim_env_name)
+    sim_env = gym.make(sim_env_name, num_distractors=args.num_distractors)
 
     # define cameras
     if args.cam_list:
@@ -137,7 +138,7 @@ def main(args):
                 pkl.dump(
                     (
                         real_processed_obs,
-                        {f"target{i}_pos": targets_pos[i] for i in range(num_cubes)},
+                        target_pos
                     ),
                     f,
                 )
@@ -146,7 +147,7 @@ def main(args):
                 pkl.dump(
                     (
                         sim_processed_obs,
-                        {f"target{i}_pos": targets_pos[i] for i in range(num_cubes)},
+                        target_pos
                     ),
                     f,
                 )

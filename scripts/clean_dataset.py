@@ -8,12 +8,14 @@ from copy import deepcopy
 from robotamer.core.constants import CAM_INFO
 from muse.envs.utils import realsense_resize_crop, realsense_resize_batch_crop
 from muse.core.constants import REALSENSE_CROP, REALSENSE_RESOLUTION
+from robotamer.core.tf import pos_quat_to_hom, hom_to_pos
 
 
 def get_args_parser():
     parser = argparse.ArgumentParser("Data cleaning script", add_help=False)
     # Directory to save trajectory
     parser.add_argument("dataset_dir", type=str)
+    parser.add_argument("--num-cubes", default=3, type=int)
     return parser
 
 
@@ -31,6 +33,7 @@ def main(args):
     step_frames = torch.zeros((len(cam_list), render_h, render_w, 3), dtype=torch.uint8)
 
     stats = {
+        "num_cubes": args.num_cubes,
         "cam_list": cam_list,
         "gripper_pos": [],
         "gripper_quat": [],
@@ -53,15 +56,27 @@ def main(args):
             for cam_i, cam_name in enumerate(cam_list):
                 obs[f"rgb_{cam_name}"] = frames[cam_i].cpu().numpy()
 
-            stats["gripper_pos"].append(obs["gripper_pos"])
-            stats["gripper_quat"].append(obs["gripper_quat"])
+            gripper_pos, gripper_quat = obs["gripper_pos"], obs["gripper_quat"]
+
+            target_pos_bis = []
+            for i in range(args.num_cubes):
+                cube_pos, cube_quat = obs[f"cube{i}_pos"], [0,0,0,1]
+                world_T_target = pos_quat_to_hom(cube_pos, cube_quat)
+                world_T_gripper = pos_quat_to_hom(gripper_pos, gripper_quat)
+                gripper_T_world = np.linalg.inv(world_T_gripper)
+                gripper_T_target = np.matmul(gripper_T_world, world_T_target)
+                target_pos_bis.append(hom_to_pos(gripper_T_target))
+
+            target_pos = np.concatenate(target_pos_bis)
+            stats["gripper_pos"].append(gripper_pos)
+            stats["gripper_quat"].append(gripper_quat)
             stats["target_pos"].append(target_pos)
 
             with open(str(real_processed_dir / filename.name), "wb") as f:
                 pkl.dump((obs, target_pos), f)
 
     for k, v in stats.items():
-        if k != "cam_list":
+        if k not in ["cam_list", "num_cubes"]:
             stats[k] = {
                 "mean": np.mean(v, axis=0),
                 "std": np.std(v, axis=0),
