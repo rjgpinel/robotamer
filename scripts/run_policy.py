@@ -4,6 +4,7 @@ import rospy
 import skvideo.io
 import warnings
 
+from time import time
 import robotamer.envs
 import muse.envs
 
@@ -21,7 +22,9 @@ from ibc.data.utils import (
     get_im_norm_stats,
     normalize_frames,
     denormalize_frame,
+    process_state,
     state_to_frames,
+    normalize_states,
 )
 from ibc.model.factory import create_vision_model, create_bc_model
 from ibc.data.utils import flatten_normalize_dict, filter_state
@@ -72,6 +75,7 @@ def main(args):
         None,
         normalization=normalization,
         data_aug="",
+        merge_hist=checkpoint["args"].merge_hist
     )
 
     # model
@@ -80,12 +84,16 @@ def main(args):
         num_frames=num_frames,
         num_streams=len(args.cam_list),
         stream_integration=checkpoint["args"].stream_integration,
+        merge_hist=checkpoint["args"].merge_hist
     )
 
     model = create_bc_model(
         vision_model=vision_model,
         data_stats=checkpoint["stats"],
-        use_state=checkpoint["args"].state
+        use_state=checkpoint["args"].state,
+        hist_len=len(checkpoint["args"].frame_hist) + 1,
+        state_hist=checkpoint["args"].state != "gripper_pose_current",
+        arch=checkpoint["args"].arch,
     )
 
     model.load_state_dict(checkpoint["model"])
@@ -94,7 +102,7 @@ def main(args):
 
     # logging
     if args.record:
-        video_writer = skvideo.io.FFmpegWriter(f"./videos/{int(time())}.mp4")
+        video_writer = skvideo.io.FFmpegWriter(f"./videos/2.mp4")
         if args.att_maps:
             att_hook = AttentionHook(model)
 
@@ -109,6 +117,11 @@ def main(args):
     frames = torch.zeros(
         (num_streams, max_frame_idx + 1, H, W, 3), dtype=torch.float32, device=ptu.device
     )
+    states = torch.zeros(
+            (max_frame_idx + 1, model.state_dim),
+            dtype=torch.float32,
+            device=ptu.device,
+        )
 
     step_frames = torch.zeros((num_streams, render_h, render_w, 3), dtype=torch.uint8)
 
@@ -120,9 +133,17 @@ def main(args):
         frames[:, :-1] = frames[:, 1:].clone()
         for cam_i, cam_name in enumerate(args.cam_list):
             step_frames[cam_i, :, :, :] = torch.from_numpy(obs[f"rgb_{cam_name}"])
+
         frames[:, -1, :, :, :], t = realsense_resize_batch_crop(
             step_frames.to(ptu.device)
         )
+
+        if args.record:
+            record_frame = rearrange(step_frames, "v h w c -> h (v w) c").numpy()
+            if args.att_maps and i > 0:
+                record_frame = att_hook.blend_map(record_frame)
+            video_writer.writeFrame(record_frame)
+
         if i == 0:
             frames[:, :-1] = frames[:, -1].unsqueeze(1)
         frames_select_idx = [max_frame_idx - i for i in reversed(history_idx_list)]
@@ -132,14 +153,24 @@ def main(args):
         if rospy.is_shutdown():
             break
 
-        state = None
+        current_state = None
         if checkpoint["args"].state:
-            state = filter_state(obs)
-            state = flatten_normalize_dict(state, checkpoint["stats"]["traj_stats"], select_keys=["gripper_pos", "gripper_theta"]).unsqueeze(0).to(ptu.device)
+            # process states
+            state = filter_state(obs, select_keys=["gripper_pos", "gripper_theta"])
+            state = process_state(state)
+            state = flatten_normalize_dict(state, model.data_stats["traj_stats"])
+            # shift states to the left
+            states[:-1] = states[1:].clone()
+            states[-1] = state
+
+            if i == 0:
+                states[:] = states[-1].unsqueeze(0)
+
+            current_state = states[frames_select_idx].unsqueeze(0)
 
         # Compute action
         with torch.no_grad():
-            action = model(frames_norm, state)
+            action = model(frames_norm, current_state)
 
         # Post-process action
         action = model.process_output(action)
@@ -157,8 +188,8 @@ def main(args):
             action["angular_velocity"] = action["angular_velocity"].squeeze(0)
 
         obs, _, done, _ = env.step(action)
-        if args.record:
-            video_writer.close()
+        # if args.record:
+            # video_writer.close()
 
         if rospy.is_shutdown():
             break
