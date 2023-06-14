@@ -49,7 +49,6 @@ def get_args_parser():
 
 def main(args):
     ptu.set_gpu_mode(True)
-
     # checkpoint loading
     checkpoint = torch.load(args.checkpoint, map_location="cpu")
     delay_hist = checkpoint["args"].delay_hist
@@ -102,7 +101,7 @@ def main(args):
 
     # logging
     if args.record:
-        video_writer = skvideo.io.FFmpegWriter(f"./videos/2.mp4")
+        video_writer = skvideo.io.FFmpegWriter(f"./videos/stack_uncalibrated1.mp4")
         if args.att_maps:
             att_hook = AttentionHook(model)
 
@@ -139,7 +138,7 @@ def main(args):
         )
 
         if args.record:
-            record_frame = rearrange(step_frames, "v h w c -> h (v w) c").numpy()
+            record_frame = rearrange(realsense_resize_batch_crop(step_frames.to(ptu.device))[0], "v h w c -> h (v w) c").cpu().numpy()
             if args.att_maps and i > 0:
                 record_frame = att_hook.blend_map(record_frame)
             video_writer.writeFrame(record_frame)

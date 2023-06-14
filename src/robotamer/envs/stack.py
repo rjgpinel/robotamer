@@ -23,7 +23,8 @@ class StackEnv(BaseEnv):
         self.safe_height = 0.1
 
         # initial_xy = [[INIT_X + (-CUBES_DIST * i), INIT_Y] for i in range(num_cubes)]
-        initial_xy = [[-0.745, 0.225], [-0.745, 0.0], [-0.745, -0.225], [-0.81, 0.115], [-0.81, -0.115]]
+        # initial_xy = [[-0.745, 0.225], [-0.745, 0.0], [-0.745, -0.225], [-0.81, 0.115], [-0.81, -0.115]]
+        initial_xy = [[-0.745, 0.225], [-0.745, 0.0]]
         default_orn = [pi, 0, pi / 2]
 
         for i in range(num_cubes):
@@ -48,7 +49,8 @@ class StackEnv(BaseEnv):
         # num_cubes = sim_env.num_cubes + sim_env.num_distractors
         num_cubes = 2
         # initial_xy = [[INIT_X + (-CUBES_DIST * i), INIT_Y] for i in range(num_cubes)]
-        initial_xy = [[-0.745, 0.225], [-0.745, 0.0], [-0.745, -0.225], [-0.81, 0.115], [-0.81, -0.115]]
+        initial_xy = [[-0.745, 0.225], [-0.745, 0.0]]
+        # initial_xy = [[-0.745, 0.225], [-0.745, 0.0], [-0.745, -0.225], [-0.81, 0.115], [-0.81, -0.115]]
         default_orn = [pi, 0, pi / 2]
         for i in sorted(list(range(num_cubes)), reverse=True):
             time.sleep(2)

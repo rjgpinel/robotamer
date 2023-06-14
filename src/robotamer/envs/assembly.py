@@ -17,6 +17,19 @@ class NutAssemblyEnv(BaseEnv):
         super(NutAssemblyEnv, self).__init__(cam_list=cam_list, depth=depth)
         self.safe_height = 0.28
 
+    def _reset(self, **kwargs):
+        self.left_home_config=[
+            -0.9773843811168246,
+            -1.7627825445142729,
+            -2.321287905152458,
+            -1.1344640137963142,
+            -2.199114857512855,
+            0.785398,
+        ]
+        super()._reset(gripper_pos=[-0.5, 0.0, 0.14], gripper_orn=[pi, 0, -pi/2], open_gripper=True)
+
+
+
     def set_scene(self, sim_env):
         sim_obs = sim_env.observe()
         screw_block_size = SCREW_HEIGHT / 3
