@@ -21,6 +21,12 @@ envs = [
         reward_threshold=1.0,
     ),
     dict(
+        id="RealRobot-PushAndPick-v0",
+        entry_point="robotamer.envs.push_and_pick:PushAndPickEnv",
+        max_episode_steps=600,
+        reward_threshold=1.0,
+    ),
+    dict(
         id="RealRobot-PushButtons-v0",
         entry_point="robotamer.envs.push_buttons:PushButtonsEnv",
         max_episode_steps=600,
@@ -41,6 +47,12 @@ envs = [
     dict(
         id="RealRobot-Sweep-v0",
         entry_point="robotamer.envs.sweep:SweepEnv",
+        max_episode_steps=1000,
+        reward_threshold=1.0,
+    ),
+    dict(
+        id="RealRobot-Cupboard-v0",
+        entry_point="robotamer.envs.cupboard:CupboardEnv",
         max_episode_steps=1000,
         reward_threshold=1.0,
     ),

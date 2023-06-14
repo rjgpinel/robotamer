@@ -10,10 +10,11 @@ CUBES_HEIGHT = 0.025*2
 CUBES_DIST = 0.17
 
 
-    def __init__(self, cam_list, *args, depth=False, **kwargs):
-        super(PickEnv, self).__init__(*args, cam_list=cam_list, depth=depth, **kwargs)
-
-        self.safe_height = 0.1
+class CupboardEnv(BaseEnv):
+    def __init__(self, cam_list, depth=False):
+        super(CupboardEnv, self).__init__(cam_list=cam_list, depth=depth)
+        self.safe_height = 0.12
+        self.gripper_workspace[:, 2] = self.safe_height
         self.set_counter = 0
 
     def set_scene(self, sim_env, initial_xy=[[-0.745, 0.225], [-0.745, 0.0], [-0.745, -0.225]]):

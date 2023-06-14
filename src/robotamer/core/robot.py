@@ -92,7 +92,7 @@ class Robot:
                     self.depth_cameras[cam_name] = Camera(
                         f"{cam_name}/aligned_depth_to_color/image_raw"
                     )
-
+        # self.scene.add_box('pick_box', make_pose([0.02, 0.0, 0.075],[0, 0, 0, 1],frame_id=ROBOT_BASE_FRAME), size=[0.2 , 0.55, 0.15])
         # Grasped flag
         self._grasped = False
         self._grip_velocity = 2 if open_gripper else -2
@@ -285,8 +285,18 @@ class Robot:
             path, fraction = self.arm.compute_cartesian_path(
                 [gripper_pose], eef_step=EEF_STEPS, jump_threshold=JUMP_THRESHOLD
             )
+
             if fraction >= 1.0:
                 self.arm.execute(path, wait=True)
+
+
+            trajectory = left_path.joint_trajectory
+            valid = self.check_jumps(trajectory)
+            if not valid:
+                raise Exception("There is a jump in the path!")
+
+            if left_fraction >= 1.0:
+                self.commander.left_arm.execute(left_path, wait=True)
                 success = True
         else:
             self.arm.set_pose_target(gripper_pose)

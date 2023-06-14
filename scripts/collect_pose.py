@@ -33,13 +33,14 @@ def get_args_parser():
     parser.add_argument("--init-seed", default=50000, type=int)
     parser.add_argument("--cam-list", default="", type=str)
     parser.add_argument("--env-name", default="Pick-v0", type=str)
+    parser.add_argument("--num-distractors", default=2, type=int)
     return parser
 
 
-def compute_target_pos(obs):
+def compute_target_pos(obs, target_key="cube0_pos"):
     gripper_pos, gripper_quat = obs["gripper_pos"], obs["gripper_quat"]
-    cube_pos, cube_quat = obs["cube0_pos"], [0, 0, 0, 1]
-    
+    cube_pos, cube_quat = obs[target_key], [0, 0, 0, 1]
+
     world_T_target = pos_quat_to_hom(cube_pos, cube_quat)
     world_T_gripper = pos_quat_to_hom(gripper_pos, gripper_quat)
     gripper_T_world = np.linalg.inv(world_T_gripper)
@@ -48,12 +49,13 @@ def compute_target_pos(obs):
 
     return target_pos
 
+
 def save_stats(stats, output_dir):
     processed_stats = {
         "cam_list": stats["cam_list"],
     }
     for k, v in stats.items():
-        if k != "cam_list":
+        if k != "cam_list" and k!= "num_cubes":
             processed_stats[k] = {
                 "mean": np.mean(v, axis=0),
                 "std": np.std(v, axis=0),
@@ -61,7 +63,6 @@ def save_stats(stats, output_dir):
 
     with open(str(output_dir / "stats.pkl"), "wb") as f:
         pkl.dump(processed_stats, f)
-
 
 
 def main(args):
@@ -73,7 +74,7 @@ def main(args):
     sim_output_dir.mkdir(parents=True, exist_ok=True)
 
     sim_env_name = args.env_name
-    sim_env = gym.make(sim_env_name)
+    sim_env = gym.make(sim_env_name, num_distractors=args.num_distractors)
 
     # define cameras
     if args.cam_list:
@@ -84,25 +85,29 @@ def main(args):
     real_env_name = f"RealRobot-{sim_env_name}"
     real_env = gym.make(real_env_name, cam_list=cam_list)
 
+    num_cubes = 1 + sim_env.num_distractors
+
     stats = {
+        "num_cubes": num_cubes,
         "cam_list": cam_list,
         "gripper_pos": [],
         "gripper_quat": [],
         "target_pos": [],
     }
-
     dataset = []
     try:
         real_env.reset()
 
-        x_get, y_get = real_env.INITIAL_XY
-        center_success = real_env.center_object_pos([x_get, y_get, real_env.CUBE_HEIGHT / 2])
+        initial_xy = [[-0.745, 0.225], [-0.745, 0.0], [-0.745, -0.225]]
         for seed in tqdm(range(args.init_seed, args.init_seed + args.poses)):
             sim_env.seed(seed)
             sim_obs = sim_env.reset()
-            target_pos = compute_target_pos(sim_obs)
+            set_success = real_env.set_scene(sim_env, initial_xy=initial_xy)
+
+            initial_xy = [sim_obs[f"cube{i}_pos"][:2] for i in range(num_cubes)]
             gripper_pos = sim_obs["gripper_pos"]
             gripper_quat = sim_obs["gripper_quat"]
+            target_pos = compute_target_pos(sim_obs, target_key="cube0_pos")
 
             stats["gripper_pos"].append(gripper_pos)
             stats["gripper_quat"].append(gripper_quat)
@@ -113,10 +118,6 @@ def main(args):
                 gripper_quat=gripper_quat,
             )
 
-            for cam_name in cam_list:
-                sim_processed_obs[f"rgb_{cam_name}"] = sim_obs[f"rgb_{cam_name}"]
-
-            set_success = real_env.set_scene(sim_env)
             default_orn = [pi, 0, pi / 2]
             real_env.safe_move_cartesian(gripper_pos, default_orn)
             real_obs = real_env.unwrapped.render()
@@ -125,24 +126,40 @@ def main(args):
                 gripper_pos=gripper_pos,
                 gripper_quat=gripper_quat,
             )
+            for i in range(num_cubes):
+                sim_processed_obs[f"cube{i}_pos"] = sim_obs[f"cube{i}_pos"]
+                real_processed_obs[f"cube{i}_pos"] = sim_obs[f"cube{i}_pos"]
 
             for cam_name in cam_list:
+                sim_processed_obs[f"rgb_{cam_name}"] = sim_obs[f"rgb_{cam_name}"]
                 real_processed_obs[f"rgb_{cam_name}"] = real_obs[f"rgb_{cam_name}"]
 
             with open(str(real_output_dir / f"{seed:07d}.pkl"), "wb") as f:
-                pkl.dump((real_processed_obs, target_pos), f)
+                pkl.dump(
+                    (
+                        real_processed_obs,
+                        target_pos
+                    ),
+                    f,
+                )
 
             with open(str(sim_output_dir / f"{seed:07d}.pkl"), "wb") as f:
-                pkl.dump((sim_processed_obs, target_pos), f)
+                pkl.dump(
+                    (
+                        sim_processed_obs,
+                        target_pos
+                    ),
+                    f,
+                )
 
-            real_env.clean_scene(sim_env)
+            # real_env.clean_scene(sim_env)
         save_stats(stats, sim_output_dir)
         save_stats(stats, real_output_dir)
 
     except Exception as e:
         print(e)
     finally:
-        real_env.put([x_get, y_get, real_env.CUBE_HEIGHT/2], [pi, 0, pi/2])
+        real_env.clean_scene(sim_env)
 
 
 if __name__ == "__main__":

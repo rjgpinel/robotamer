@@ -12,6 +12,7 @@ from math import pi
 from gym.utils import seeding
 from prl_ur5_demos.utils import make_pose
 from robotamer.core.robot import Robot
+from robotamer.envs.utils import quat_to_euler
 from robotamer.core.constants import (
     REAL_DT,
     SIM_DT,
@@ -21,11 +22,6 @@ from robotamer.core.constants import (
     JUMP_THRESHOLD,
     WORKSPACE,
 )
-
-# WORKSPACE = {
-#     "left": np.array([[-0.695, -0.175, 0.00], [-0.295, 0.175, 0.2]]),
-#     "right": np.array([[0.295, -0.16, 0.00], [0.695, 0.175, 0.2]]),
-# }
 
 GRIPPER_HEIGHT_INIT = np.array([0.06, 0.10])
 
@@ -74,6 +70,7 @@ class BaseEnv(gym.Env):
         # Workspace definition
         self.version = version
         self.workspace = WORKSPACE[arm][version]
+
         self.gripper_workspace = self.workspace.copy()
         self.gripper_workspace[:, 2] = GRIPPER_HEIGHT_INIT
 
@@ -105,7 +102,7 @@ class BaseEnv(gym.Env):
         self.neutral_gripper_orn = [pi, 0, 0] if arm == "right" else [pi, 0, pi / 2]
         self.safe_height = GRIPPER_HEIGHT_INIT[-1]
 
-        # Subsribe to eef velocity.
+
         self.velocity_subscriber = rospy.Subscriber(
             f"{arm}_eef_velocity", Vector3, self.get_eef_velocity, queue_size=1)
         self.eef_velocity = np.array([0., 0., 0.])
@@ -204,9 +201,11 @@ class BaseEnv(gym.Env):
             grip_open_mean = np.mean(self._grip_history)
 
             if grip_open_mean > 0:
-                self.robot.move_gripper("open", wait=False)
+                self.robot.move_gripper("open", wait=True)
+                # self.robot.move_gripper("open", wait=False)
             else:
-                self.robot.move_gripper("close", wait=False)
+                self.robot.move_gripper("close", wait=True)
+                # self.robot.move_gripper("close", wait=False)
 
         processed_action["linear_velocity"] = (
             action["linear_velocity"] * SIM_DT / REAL_DT
@@ -244,7 +243,10 @@ class BaseEnv(gym.Env):
 
         for cam_name in self.robot.cam_list:
             cam = self.robot.cameras[cam_name]
-            obs[f"rgb_{cam_name}"] = cam.record_image(dtype=np.uint8)
+            obs[f"rgb_{cam_name}"], cam_t = cam.record_image(dtype=np.uint8)
+            # if cam_name not in self.timestamp:
+            #     self.timestamp[cam_name] = []
+            # self.timestamp[cam_name].append(cam_t)
 
             if self._depth:
                 depth_cam = self.robot.depth_cameras[cam_name]
@@ -268,9 +270,15 @@ class BaseEnv(gym.Env):
         obs["gripper_pos"] = np.array(gripper_pose[0])
         obs["gripper_quat"] = np.array(gripper_pose[1])
         obs["gripper_trans_velocity"] = np.array(self.eef_velocity)
+        obs["gripper_theta"] = quat_to_euler(np.array(gripper_pose[1]), False)[-1]
         obs["grip_velocity"] = self.robot._grip_velocity
         obs["gripper_state"] = self.robot._grasped
 
+        # counter =  self.robot.cameras[self.robot.cam_list[0]].counter
+        # if counter % 50 == 0 and counter >0:
+        # delay = np.abs(np.array(self.timestamp["charlie_camera"]) - np.array(self.timestamp["bravo_camera"]))
+        # print(f"Diff mean cam {delay.mean()*1000}")
+        # print(f"Diff std cam {delay.std()*1000}")
         # TODO: Add joints state
         return obs
 
