@@ -2,8 +2,8 @@ import numpy as np
 
 
 # Speed integration period
-REAL_DT = 0.2
-SIM_DT = 0.2
+REAL_DT = 0.1
+SIM_DT = 0.1
 
 # Cameras configuration
 BRAVO_INFO = {
@@ -59,7 +59,8 @@ TASK_START_CONFIG = {
 WORKSPACE = {
     # TODO: Define overlapping workspaces in v1.
     "left": {"v0": np.array([[-0.695, -0.16, 0.00], [-0.295, 0.175, 0.2]]),
-             "v1": np.array([[-0.695, -0.16, 0.00], [-0.295, 0.175, 0.2]])},
+             "v1": np.array([[-0.695, -0.16, 0.00], [-0.295, 0.175, 0.2]]),
+             "legacy": np.array([[-0.695, -0.175, 0.00], [-0.295, 0.175, 0.2]])},
     "right": {"v0": np.array([[0.295, -0.16, 0.00], [0.695, 0.175, 0.2]]),
               "v1": np.array([[0.295, -0.16, 0.00], [0.695, 0.175, 0.2]])},
 }

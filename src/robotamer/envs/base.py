@@ -66,7 +66,7 @@ class BaseEnv(gym.Env):
         depth=False,
         cam_info=None,
         arm="left",
-        version="v0",
+        version="legacy",
         open_gripper=True,
     ):
         rospy.init_node("env_node", log_level=rospy.INFO)
