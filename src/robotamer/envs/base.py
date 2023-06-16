@@ -243,7 +243,7 @@ class BaseEnv(gym.Env):
 
         for cam_name in self.robot.cam_list:
             cam = self.robot.cameras[cam_name]
-            obs[f"rgb_{cam_name}"], cam_t = cam.record_image(dtype=np.uint8)
+            obs[f"rgb_{cam_name}"] = cam.record_image(dtype=np.uint8)
             # if cam_name not in self.timestamp:
             #     self.timestamp[cam_name] = []
             # self.timestamp[cam_name].append(cam_t)

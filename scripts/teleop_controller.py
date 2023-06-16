@@ -8,8 +8,6 @@ import numpy as np
 from absl import app
 from absl import flags
 
-# from robotamer.envs.pick import PickEnv
-from robotamer.core import datasets
 from robotamer.core import utils
 from sensor_msgs.msg import Joy
 
@@ -24,7 +22,7 @@ flags.DEFINE_enum('task_version', 'v0', ['v0', 'v1'],
 FLAGS = flags.FLAGS
 
 
-def teleop_callback(data, env, dataset, x_scale=0.1, y_scale=0.1):
+def teleop_callback(data, env, x_scale=0.05, y_scale=0.05):
     print('Received', data)
     print('eef', env.robot.eef_pose()[0])
     joy_left = data.axes[0]
@@ -44,11 +42,8 @@ def teleop_callback(data, env, dataset, x_scale=0.1, y_scale=0.1):
     print('Sending', action)
     if start:
         obs = env.render()
-        dataset.reset(obs)
         print('Observation fields', obs.keys())
     if done:
-        dataset.append_action(np.array([0., 0.]))
-        dataset.save()
         print('Finished episode; Resetting arm')
         obs = env.reset()
         print('Observation fields', obs.keys())
@@ -56,7 +51,6 @@ def teleop_callback(data, env, dataset, x_scale=0.1, y_scale=0.1):
         print('Reset finished')
         print('Ready to receive joystick controls')
     elif discard:
-        dataset.discard_episode()
         print('Resetting arm')
         obs = env.reset()
         print('Observation fields', obs.keys())
@@ -65,7 +59,6 @@ def teleop_callback(data, env, dataset, x_scale=0.1, y_scale=0.1):
         print('Ready to receive joystick controls')
     else:
         real_obs, done, reward, info = env.step(action)
-        dataset.append(action_2d, real_obs)
 
 
 def test_displacement(env):
@@ -87,7 +80,7 @@ def main(_):
             cam_list = ['left_camera', 'spare_camera']
         else:
             cam_list = ['bravo_camera', 'charlie_camera']
-        env = gym.make(f'RealRobot-Cylinder-Push-{FLAGS.task_version}',
+        env = gym.make(f'RealRobot-Pick-{FLAGS.task_version}',
                        cam_list=cam_list,
                        arm=FLAGS.arm,
                        version=FLAGS.task_version,
@@ -97,17 +90,9 @@ def main(_):
         print('Cartesian pose', env.robot.eef_pose())
         print('Config', env.env._get_current_config())
 
-        timestamp = utils.get_timestamp()
-        dataset_type = 'sim_' if FLAGS.sim else ''
-        dataset_path = os.path.join(
-            os.environ['TOP_DATA_DIR'],
-             f'rrlfd/pushing_demos_{FLAGS.task_version}_{dataset_type}'
-             f'{timestamp}.pkl')
-        dataset = datasets.EpisodeDataset(dataset_path)
-
         x_scale = y_scale = 0.05
         env_step_callback = functools.partial(
-            teleop_callback, env=env, dataset=dataset, x_scale=x_scale,
+            teleop_callback, env=env, x_scale=x_scale,
             y_scale=y_scale)
         rospy.Subscriber('joy_teleop', Joy, env_step_callback, queue_size=1)
         print('Ready to receive joystick controls')

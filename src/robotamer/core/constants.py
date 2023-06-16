@@ -2,8 +2,8 @@ import numpy as np
 
 
 # Speed integration period
-REAL_DT = 0.1
-SIM_DT = 0.1
+REAL_DT = 0.2
+SIM_DT = 0.2
 
 # Cameras configuration
 BRAVO_INFO = {
@@ -25,7 +25,7 @@ CAM_INFO = {"bravo_camera": BRAVO_INFO, "charlie_camera": CHARLIE_INFO}
 # Controller definition
 EEF_FRAME = {"left": "left_gripper_grasp_frame", "right": "right_gripper_grasp_frame"}
 ROBOT_BASE_FRAME = "prl_ur5_base"
-OVERSHOOT_FACTOR = 1.0  # Set to 0.0 for no overshoot
+OVERSHOOT_FACTOR = 0.2  # Set to 0.0 for no overshoot
 N_SAMPLES_OVERSHOOT = 1
 MAX_VELOCITY_SCALING_FACTOR = 0.2
 MAX_ACCELERATION_SCALING_FACTOR = 0.2

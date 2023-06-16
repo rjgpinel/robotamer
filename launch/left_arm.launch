@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <launch>
-  <arg name="sim" default="true" doc="choose real robot or simulation"/>
+  <arg name="sim" default="false" doc="choose real robot or simulation"/>
   <include file="$(find prl_ur5_run)/launch/sim.launch" if="$(arg sim)">
     <!-- <arg name="sensors" value="true"/> -->
     <arg name="velocity_control" value="false"/>
@@ -11,7 +11,6 @@
     <arg name="sensors" value="true"/>
     <arg name="enable_left_camera" value="false"/>
     <arg name="enable_right_camera" value="false"/>
-    <arg name="enable_spare_camera" value="false"/>
     <arg name="enable_bravo_camera" value="true"/>
     <arg name="enable_charlie_camera" value="true"/>
   </include>

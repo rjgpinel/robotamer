@@ -1,10 +1,10 @@
+import pinocchio as pin
 import moveit_commander
 import rospy
 import sys
 import tf
 
 import numpy as np
-import pinocchio as pin
 
 from moveit_msgs.msg import RobotState
 from prl_ur5_demos.utils import make_pose
@@ -115,21 +115,18 @@ class Robot:
 
     def eef_pose(self):
         eef_tf = self._eef_tf_recorder.record_tf().transform
-        eef_pose = np.array(
-            [
-                [
+        eef_pose = [np.array([
                     eef_tf.translation.x,
                     eef_tf.translation.y,
-                    eef_tf.translation.z,
-                ],
-                [
+                    eef_tf.translation.z
+                ]),
+                np.array([
                     eef_tf.rotation.x,
                     eef_tf.rotation.y,
                     eef_tf.rotation.z,
-                    eef_tf.rotation.w,
-                ],
-            ]
-        )
+                    eef_tf.rotation.w
+                ])
+        ]
         return eef_pose
 
     def joints_state(self):
@@ -286,17 +283,13 @@ class Robot:
                 [gripper_pose], eef_step=EEF_STEPS, jump_threshold=JUMP_THRESHOLD
             )
 
-            if fraction >= 1.0:
-                self.arm.execute(path, wait=True)
-
-
-            trajectory = left_path.joint_trajectory
+            trajectory = path.joint_trajectory
             valid = self.check_jumps(trajectory)
             if not valid:
                 raise Exception("There is a jump in the path!")
 
-            if left_fraction >= 1.0:
-                self.commander.left_arm.execute(left_path, wait=True)
+            if fraction >= 1.0:
+                self.commander.left_arm.execute(path, wait=True)
                 success = True
         else:
             self.arm.set_pose_target(gripper_pose)

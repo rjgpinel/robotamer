@@ -16,6 +16,7 @@ class ActionRepeater:
         """Only send action if non-zero or if the last action was nonzero."""
         zero_action = not np.any(action.axes) and not np.any(action.buttons)
         if not zero_action or not self.prev_action_zero:
+            print(action)
             self.publisher.publish(action)
         self.prev_action_zero = not np.any(action.axes)
 

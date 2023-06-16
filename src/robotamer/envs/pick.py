@@ -10,6 +10,7 @@ CUBES_HEIGHT = 0.025*2
 CUBES_DIST = 0.17
 
 
+class PickEnv(BaseEnv):
     def __init__(self, cam_list, *args, depth=False, **kwargs):
         super(PickEnv, self).__init__(*args, cam_list=cam_list, depth=depth, **kwargs)
 
