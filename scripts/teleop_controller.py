@@ -22,23 +22,31 @@ flags.DEFINE_enum('task_version', 'v0', ['v0', 'v1'],
 FLAGS = flags.FLAGS
 
 
-def teleop_callback(data, env, x_scale=0.05, y_scale=0.05):
+def teleop_callback(data, env, x_scale=0.1, y_scale=0.1, z_scale=0.1, x_rot_scale=0.5, y_rot_scale=0.5, z_rot_scale=0.5):
     print('Received', data)
     print('eef', env.robot.eef_pose()[0])
-    joy_left = data.axes[0]
-    joy_up = data.axes[1]
+    left_joy_left = data.axes[0]
+    left_joy_up = data.axes[1]
+    right_joy_left = data.axes[3]
+    right_joy_up = data.axes[4]
+    y_rot = ((data.axes[2] - 1.0)/2 - (data.axes[5] - 1.0)/2)/2
+    x_rot = data.buttons[5]/2 - data.buttons[4]/2
 
-    start = data.buttons[0]  # A
+    start = data.buttons[3]  # Y
     discard = data.buttons[1]  # B
     done = data.buttons[2]  # X
+    openess = data.buttons[0]  # A
 
-    vx = y_scale * joy_up
-    vy = x_scale * joy_left
+    vx = x_scale * -left_joy_up
+    vy = y_scale * -left_joy_left
+    vz = z_scale * right_joy_up
+    wx = x_rot_scale * -x_rot
+    wy = y_rot_scale * -y_rot
+    wz = z_rot_scale * -right_joy_left
     action = {
-        'linear_velocity': np.array([vx, vy, 0.0]),
-        'angular_velocity': np.array([0.0, 0.0, 0.0]),
+        'linear_velocity': np.array([vx, vy, vz]),
+        'angular_velocity': np.array([wx, wy, wz]),
     }
-    action_2d = np.array([vx, vy])
     print('Sending', action)
     if start:
         obs = env.render()
@@ -88,7 +96,7 @@ def main(_):
 
         real_obs = env.reset()
         print('Cartesian pose', env.robot.eef_pose())
-        print('Config', env.env._get_current_config())
+        #print('Config', env.env._get_current_config())
 
         x_scale = y_scale = 0.05
         env_step_callback = functools.partial(

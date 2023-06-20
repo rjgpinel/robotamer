@@ -172,9 +172,7 @@ class BaseEnv(gym.Env):
             success = self.robot.go_to_pose(gripper_pos, gripper_orn, cartesian=True)
 
         if not success:
-            # print("Moving the robot to default position failed")
             raise RuntimeError("Moving the robot to default position failed")
-            # exit()
 
         self.robot.reset(open_gripper=open_gripper)
 
@@ -244,10 +242,6 @@ class BaseEnv(gym.Env):
         for cam_name in self.robot.cam_list:
             cam = self.robot.cameras[cam_name]
             obs[f"rgb_{cam_name}"] = cam.record_image(dtype=np.uint8)
-            # if cam_name not in self.timestamp:
-            #     self.timestamp[cam_name] = []
-            # self.timestamp[cam_name].append(cam_t)
-
             if self._depth:
                 depth_cam = self.robot.depth_cameras[cam_name]
                 obs[f"depth_{cam_name}"] = (
@@ -259,12 +253,6 @@ class BaseEnv(gym.Env):
 
             if f"info_{cam_name}" in self.cam_info:
                 obs[f"info_{cam_name}"] = self.cam_info[f"info_{cam_name}"]
-            # if f"full_info_{cam_name}" in self.cam_info:
-            #     obs[f"full_info_{cam_name}"] = (
-            #         self.cam_info[f"full_info_{cam_name}"])
-            # if f"intrinsics_{cam_name}" in self.cam_info:
-            #     obs[f"intrinsics_{cam_name}"] = (
-            #         self.cam_info[f"intrinsics_{cam_name}"])
 
         gripper_pose = self.robot.eef_pose()
         obs["gripper_pos"] = np.array(gripper_pose[0])
@@ -274,12 +262,6 @@ class BaseEnv(gym.Env):
         obs["grip_velocity"] = self.robot._grip_velocity
         obs["gripper_state"] = self.robot._grasped
 
-        # counter =  self.robot.cameras[self.robot.cam_list[0]].counter
-        # if counter % 50 == 0 and counter >0:
-        # delay = np.abs(np.array(self.timestamp["charlie_camera"]) - np.array(self.timestamp["bravo_camera"]))
-        # print(f"Diff mean cam {delay.mean()*1000}")
-        # print(f"Diff std cam {delay.std()*1000}")
-        # TODO: Add joints state
         return obs
 
     def close(self):
