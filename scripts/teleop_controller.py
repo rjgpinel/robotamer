@@ -22,7 +22,7 @@ flags.DEFINE_enum('task_version', 'v0', ['v0', 'v1'],
 FLAGS = flags.FLAGS
 
 
-def teleop_callback(data, env, x_scale=0.1, y_scale=0.1, z_scale=0.1, x_rot_scale=0.5, y_rot_scale=0.5, z_rot_scale=0.5):
+def teleop_callback(data, env, x_scale=0.1, y_scale=0.1, z_scale=0.05, x_rot_scale=0.15, y_rot_scale=0.15, z_rot_scale=0.15):
     print('Received', data)
     print('eef', env.robot.eef_pose()[0])
     left_joy_left = data.axes[0]
@@ -33,9 +33,10 @@ def teleop_callback(data, env, x_scale=0.1, y_scale=0.1, z_scale=0.1, x_rot_scal
     x_rot = data.buttons[5]/2 - data.buttons[4]/2
 
     start = data.buttons[3]  # Y
-    discard = data.buttons[1]  # B
     done = data.buttons[2]  # X
-    openess = data.buttons[0]  # A
+    discard = data.buttons[6] # back
+    open_gripper = data.buttons[1]  # B
+    close_gripper = data.buttons[0]  # A
 
     vx = x_scale * -left_joy_up
     vy = y_scale * -left_joy_left
@@ -43,23 +44,21 @@ def teleop_callback(data, env, x_scale=0.1, y_scale=0.1, z_scale=0.1, x_rot_scal
     wx = x_rot_scale * -x_rot
     wy = y_rot_scale * -y_rot
     wz = z_rot_scale * -right_joy_left
+
     action = {
         'linear_velocity': np.array([vx, vy, vz]),
         'angular_velocity': np.array([wx, wy, wz]),
     }
+
+    if open_gripper or close_gripper:
+        action["grip_open"] = open_gripper - close_gripper
+
     print('Sending', action)
     if start:
         obs = env.render()
         print('Observation fields', obs.keys())
     if done:
         print('Finished episode; Resetting arm')
-        obs = env.reset()
-        print('Observation fields', obs.keys())
-        # dataset.reset(obs)
-        print('Reset finished')
-        print('Ready to receive joystick controls')
-    elif discard:
-        print('Resetting arm')
         obs = env.reset()
         print('Observation fields', obs.keys())
         # dataset.reset(obs)

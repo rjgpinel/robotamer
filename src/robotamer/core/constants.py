@@ -20,12 +20,20 @@ CHARLIE_INFO = {
     "height": 480,
     "width": 640,
 }
+RIGHT_CAMERA_INFO = {
+    "pos": np.array([-1.201099, 0.005, 0.403127]),
+    "euler": np.array([1.04368278, -0.00250582, -1.56810664]),
+    "fovy": 42.5,
+    "height": 480,
+    "width": 640,
+}
+
 CAM_INFO = {"bravo_camera": BRAVO_INFO, "charlie_camera": CHARLIE_INFO}
 
 # Controller definition
 EEF_FRAME = {"left": "left_gripper_grasp_frame", "right": "right_gripper_grasp_frame"}
 ROBOT_BASE_FRAME = "prl_ur5_base"
-OVERSHOOT_FACTOR = 0.2  # Set to 0.0 for no overshoot
+OVERSHOOT_FACTOR = 1.0  # Set to 0.0 for no overshoot
 N_SAMPLES_OVERSHOOT = 1
 MAX_VELOCITY_SCALING_FACTOR = 0.2
 MAX_ACCELERATION_SCALING_FACTOR = 0.2

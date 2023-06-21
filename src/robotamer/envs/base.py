@@ -172,7 +172,9 @@ class BaseEnv(gym.Env):
             success = self.robot.go_to_pose(gripper_pos, gripper_orn, cartesian=True)
 
         if not success:
+            # print("Moving the robot to default position failed")
             raise RuntimeError("Moving the robot to default position failed")
+            # exit()
 
         self.robot.reset(open_gripper=open_gripper)
 
@@ -198,7 +200,7 @@ class BaseEnv(gym.Env):
             self._grip_history.append(grip_open)
             grip_open_mean = np.mean(self._grip_history)
 
-            if grip_open_mean > 0:
+            if grip_open_mean >= 0:
                 self.robot.move_gripper("open", wait=True)
                 # self.robot.move_gripper("open", wait=False)
             else:
@@ -242,6 +244,7 @@ class BaseEnv(gym.Env):
         for cam_name in self.robot.cam_list:
             cam = self.robot.cameras[cam_name]
             obs[f"rgb_{cam_name}"] = cam.record_image(dtype=np.uint8)
+
             if self._depth:
                 depth_cam = self.robot.depth_cameras[cam_name]
                 obs[f"depth_{cam_name}"] = (

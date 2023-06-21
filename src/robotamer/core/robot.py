@@ -263,6 +263,18 @@ class Robot:
         self.gripper.set_named_target(state)
         self.gripper.go(wait=wait)
 
+    def swap_state(self, wait=True):
+        if self._grasped:
+            self._grip_velocity = -2
+            self._grasped = False
+            next_state = "open"
+        else:
+            self._grasped = True
+            self._grip_velocity = 2
+            next_state = "close"
+        self.gripper.set_named_target(next_state)
+        self.gripper.go(wait=wait)
+
     def set_config(self, q):
         success = self.arm.go(q, wait=True)
         return success
