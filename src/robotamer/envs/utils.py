@@ -1,4 +1,9 @@
+import functools
+import numpy as np
+
+from gym import spaces
 from scipy.spatial.transform import Rotation
+
 
 def safe_random_pose(self):
     current_pose = self.real_robot.robot.left_arm.get_current_pose().pose
@@ -61,3 +66,20 @@ def quat_to_euler(quat, degrees):
     rotation = Rotation.from_quat(quat)
     return rotation.as_euler("xyz", degrees=degrees)
 
+def convert_to_spec(obs):
+    Box = functools.partial(spaces.Box, low=-np.inf, high=np.inf)
+    Img = functools.partial(spaces.Box, low=0, high=255, dtype=np.uint8)
+    if isinstance(obs, dict):
+        return spaces.Dict({k: convert_to_spec(v) for k, v in obs.items()})
+    elif isinstance(obs, np.ndarray):
+        if obs.dtype == np.uint8:
+            return Img(shape=obs.shape)
+        else:
+            return Box(shape=obs.shape)
+    elif isinstance(obs, bool):
+        return spaces.Discrete(2)
+    elif isinstance(obs, int) or isinstance(obs, float):
+        return Box(shape=(), dtype=type(obs))
+    else:
+        raise TypeError(
+            f'Could not convert observation {obs} of type {type(obs)} to spec')

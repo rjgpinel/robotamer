@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="sim" default="false" doc="choose real robot or simulation"/>
+  <include file="$(find prl_ur5_run)/launch/sim.launch" if="$(arg sim)">
+    <!-- <arg name="sensors" value="true"/> -->
+    <arg name="velocity_control" value="false"/>
+  </include>
+  <include file="$(find prl_ur5_run)/launch/real.launch" unless="$(arg sim)">
+    <!-- <arg name="sensors" value="true"/> -->
+    <arg name="velocity_control" value="false"/>
+    <arg name="sensors" value="true"/>
+    <arg name="enable_left_camera" value="false"/>
+    <arg name="enable_right_camera" value="false"/>
+    <arg name="enable_bravo_camera" value="true"/>
+    <arg name="enable_charlie_camera" value="true"/>
+  </include>
+
+  <node pkg="joy" type="joy_node" name="joy_node">
+    <param name="dev" type="string" value="/dev/input/js0" />
+    <param name="autorepeat_rate" value="5"/> <!-- 10 -->
+  </node>
+
+  <node pkg="robotamer" type="teleop_repeater.py" name="teleop_repeater">
+  </node>
+
+  <node pkg="robotamer" type="eef_velocity_publisher.py" name="eef_velocity_publisher">
+  </node>
+
+</launch>

@@ -11,8 +11,9 @@ CUBES_DIST = 0.17
 
 
 class PickEnv(BaseEnv):
-    def __init__(self, cam_list, depth=False):
-        super(PickEnv, self).__init__(cam_list=cam_list, depth=depth)
+    def __init__(self, cam_list, *args, depth=False, **kwargs):
+        super(PickEnv, self).__init__(*args, cam_list=cam_list, depth=depth, **kwargs)
+
         self.safe_height = 0.1
         self.set_counter = 0
 

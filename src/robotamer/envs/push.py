@@ -7,8 +7,8 @@ from robotamer.envs.base import BaseEnv
 
 
 class PushEnv(BaseEnv):
-    def __init__(self, cam_list, depth=False):
-        super(PushEnv, self).__init__(cam_list=cam_list, depth=depth)
+    def __init__(self, cam_list, *args, depth=False, **kwargs):
+        super(PushEnv, self).__init__(*args, cam_list=cam_list, depth=depth, **kwargs)
 
         workspace_x_center = (
             1 * (self.workspace[1][0] - self.workspace[0][0]) / 8
