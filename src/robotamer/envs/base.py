@@ -98,8 +98,6 @@ class BaseEnv(gym.Env):
         for cam_name in cam_list:
             if cam_name in CAM_INFO:
                 self.cam_info[f"info_{cam_name}"] = CAM_INFO[cam_name]
-            self.cam_info[f"full_info_{cam_name}"] = (
-                self.robot.cameras[cam_name].info)
             self.cam_info[f"intrinsics_{cam_name}"] = (
                 self.robot.cameras[cam_name].intrinsics)
         self._np_random = np.random
@@ -136,13 +134,14 @@ class BaseEnv(gym.Env):
 
     def _reset(self, gripper_pos=None, gripper_orn=None, open_gripper=True, joints=None, home_only=False, **kwargs):
         print("Returning to home config")
-        success = self.robot.set_config(self.home_config)
+        config = self._get_current_config()
+        diff = np.sum(np.subtract(config, self.home_config))
+   
+        success = self.robot.set_config(self.home_config) if diff >= 0.001 else True
         if success:
             print("Done")
         else:
             print("Failed to return")
-        config = self._get_current_config()
-        diff = np.subtract(config, self.home_config)
 
         if home_only:
             return
@@ -239,6 +238,7 @@ class BaseEnv(gym.Env):
     def render(self, *unused_args, **unused_kwargs):
         obs = {}
 
+        # import pudb; pudb.set_trace()
         # Proprioceptive
         gripper_pose = self.robot.eef_pose()
         obs["gripper_pos"] = np.array(gripper_pose[0])
@@ -276,7 +276,7 @@ class BaseEnv(gym.Env):
                     obs[f"pcd_{cam_name}"] = pcd
 
             if self._gripper_attn:
-                K = self.cam_info[f"intrinsics_{cam_name}"]["k"]
+                K = self.cam_info[f"intrinsics_{cam_name}"]["K"]
                 gr_px = project(gripper_pose, np.linalg.inv(world_T_cam), K)
                 gr_x, gr_y = gr_px[0], gr_px[1]
                 obs[f"gripper_uv_{cam_name}"] = [gr_y, gr_x]

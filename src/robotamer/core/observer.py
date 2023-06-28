@@ -3,7 +3,6 @@ import tf2_ros
 import rospy
 import numpy as np
 
-import pyrealsense2 as rs2
 from sensor_msgs.msg import CameraInfo
 from sensor_msgs.msg import Image
 from sensor_msgs.msg import JointState
@@ -19,15 +18,7 @@ class Camera:
 
     def info_to_intrinsics(self):
         msg = self.info
-        intrinsics = rs2.intrinsics()
-        intrinsics.height = msg.height    
-        intrinsics.width = msg.width
-        intrinsics.fx = msg.K[0]
-        intrinsics.fy = msg.K[4]
-        intrinsics.ppx = msg.K[2]
-        intrinsics.ppy = msg.K[5]
-        intrinsics.model = rs2.pyrealsense2.distortion.none
-        intrinsics.coeffs = msg.D
+        intrinsics = dict(height=msg.height, width=msg.width, fx=msg.K[0], fy=msg.K[4], ppx=msg.K[2], ppy=msg.K[5], K=np.array(msg.K).reshape(3,3))
         return intrinsics
 
     def record_image(self, timeout=None, dtype=np.uint8):
@@ -61,6 +52,8 @@ class CameraAsync(Camera):
         if rospy.core.is_shutdown():
             raise rospy.exceptions.ROSInterruptException("rospy shutdown")
 
+        # self.counter = 0
+        # self.times = []
 
     def save_last_image(self, msg):
         self._im_msg = msg
@@ -69,8 +62,17 @@ class CameraAsync(Camera):
         """Return next received image as numpy array in specified encoding.
         @param timeout: time in seconds
         """
+        # delay_t = rospy.Time.now() - self._im_msg.header.stamp
+
+        # self.times.append(delay_t.to_sec())
         data = np.frombuffer(self._im_msg.data, dtype=dtype)
         data = data.reshape((self._im_msg.height, self._im_msg.width, -1))
+
+        # self.counter += 1
+        # if self.counter % 50 == 0 and self.counter >0:
+        #     print(f"Topic: {self._topic} - Mean: {np.mean(self.times)*1000}")
+        #     print(f"Topic: {self._topic} - Std: {np.std(self.times)*1000}")
+        #     self.times=[]
 
         return data, self._im_msg.header.stamp.to_sec()
 
