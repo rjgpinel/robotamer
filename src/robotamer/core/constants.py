@@ -2,25 +2,32 @@ import numpy as np
 
 
 # Speed integration period
-REAL_DT = 0.1
-SIM_DT = 0.1
+REAL_DT = 0.2
+SIM_DT = 0.2
 
 # Cameras configuration
 BRAVO_INFO = {
-    "pos": np.array([-0.494061, 0.692729, 0.400215]),
-    "euler": np.array([1.03091702, 0.00556305, -3.11407431]),
+    "pos": np.array([-0.494099, 0.703516, 0.396606]),
+    "euler": np.array([-1.936, 0.004, -3.139]),
     "fovy": 42.5,
     "height": 480,
     "width": 640,
 }
+
 CHARLIE_INFO = {
+    "pos": np.array([-1.201099, 0.005, 0.403127]),
+    "euler": np.array([-2.094, -0.00250582, -1.56810664]),
+    "fovy": 42.5,
+    "height": 480,
+    "width": 640,
+}
+RIGHT_CAMERA_INFO = {
     "pos": np.array([-1.201099, 0.005, 0.403127]),
     "euler": np.array([1.04368278, -0.00250582, -1.56810664]),
     "fovy": 42.5,
     "height": 480,
     "width": 640,
 }
-
 
 CAM_INFO = {"bravo_camera": BRAVO_INFO, "charlie_camera": CHARLIE_INFO}
 
@@ -47,6 +54,9 @@ TASK_START_CONFIG = {
         "v0": [
             0.8707625865936279, -1.7185638586627405, 1.6314215660095215, -0.9090965429889124, 2.146097183227539, 0.8783294558525085
         ],
+        # "v1": [
+        #     0.8707625865936279, -1.7185638586627405, 1.6314215660095215, -0.9090965429889124, 2.146097183227539, 0.8783294558525085
+        # ]
     },
     "left": {
         "v0": [
@@ -56,6 +66,7 @@ TASK_START_CONFIG = {
 }
 
 WORKSPACE = {
+    # TODO: Define overlapping workspaces in v1.
     "left": {"v0": np.array([[-0.695, -0.16, 0.00], [-0.295, 0.175, 0.2]]),
              "v1": np.array([[-0.695, -0.16, 0.00], [-0.295, 0.175, 0.2]]),
              "legacy": np.array([[-0.695, -0.175, 0.00], [-0.295, 0.175, 0.2]])},
