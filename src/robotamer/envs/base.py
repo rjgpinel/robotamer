@@ -22,6 +22,7 @@ from robotamer.core.constants import (
     JUMP_THRESHOLD,
     WORKSPACE,
 )
+from robotamer.core.tf import depth_to_pcd, pos_euler_to_hom, transform_pcd, project
 
 GRIPPER_HEIGHT_INIT = np.array([0.06, 0.10])
 
@@ -60,6 +61,8 @@ class BaseEnv(gym.Env):
         self,
         cam_list=["bravo_camera", "charlie_camera"],
         depth=False,
+        pcd=False,
+        gripper_attn=False,
         cam_info=None,
         arm="left",
         version="legacy",
@@ -86,6 +89,8 @@ class BaseEnv(gym.Env):
 
         # Depth flag
         self._depth = depth
+        self._pcd = pcd
+        self._gripper_attn = gripper_attn
         self._grip_history = deque(maxlen=5)
 
         # Cam info
@@ -139,12 +144,6 @@ class BaseEnv(gym.Env):
         config = self._get_current_config()
         diff = np.subtract(config, self.home_config)
 
-        print("Current config vs. home; difference")
-        np.set_printoptions(suppress=True, linewidth=90)
-        print(np.array2string(
-            np.stack([config, self.home_config, diff]), separator=", "))
-        np.set_printoptions(suppress=False, linewidth=75)
-        print("EEF pose", self.robot.eef_pose())
         if home_only:
             return
 
@@ -160,6 +159,7 @@ class BaseEnv(gym.Env):
                 np.stack([config, joints, diff]), separator=", "))
             print("EEF pose", self.robot.eef_pose())
             np.set_printoptions(suppress=False, linewidth=75)
+
         if gripper_pos is not None or gripper_orn is not None:
             if gripper_pos is None:
                 gripper_pos = self.robot.eef_pose()[0]
@@ -172,9 +172,7 @@ class BaseEnv(gym.Env):
             success = self.robot.go_to_pose(gripper_pos, gripper_orn, cartesian=True)
 
         if not success:
-            # print("Moving the robot to default position failed")
             raise RuntimeError("Moving the robot to default position failed")
-            # exit()
 
         self.robot.reset(open_gripper=open_gripper)
 
@@ -241,22 +239,7 @@ class BaseEnv(gym.Env):
     def render(self, *unused_args, **unused_kwargs):
         obs = {}
 
-        for cam_name in self.robot.cam_list:
-            cam = self.robot.cameras[cam_name]
-            obs[f"rgb_{cam_name}"] = cam.record_image(dtype=np.uint8)
-
-            if self._depth:
-                depth_cam = self.robot.depth_cameras[cam_name]
-                obs[f"depth_{cam_name}"] = (
-                    depth_cam.record_image(dtype=np.uint16)
-                    .astype(np.float32)
-                    .squeeze(-1)
-                    / 1000
-                )
-
-            if f"info_{cam_name}" in self.cam_info:
-                obs[f"info_{cam_name}"] = self.cam_info[f"info_{cam_name}"]
-
+        # Proprioceptive
         gripper_pose = self.robot.eef_pose()
         obs["gripper_pos"] = np.array(gripper_pose[0])
         obs["gripper_quat"] = np.array(gripper_pose[1])
@@ -264,6 +247,39 @@ class BaseEnv(gym.Env):
         obs["gripper_theta"] = quat_to_euler(np.array(gripper_pose[1]), False)[-1]
         obs["grip_velocity"] = self.robot._grip_velocity
         obs["gripper_state"] = self.robot._grasped
+
+        # Sensors
+        for cam_name in self.robot.cam_list:
+            cam = self.robot.cameras[cam_name]
+
+            if f"info_{cam_name}" in self.cam_info:
+                obs[f"info_{cam_name}"] = self.cam_info[f"info_{cam_name}"]
+
+            obs[f"rgb_{cam_name}"] = cam.record_image(dtype=np.uint8)
+
+            if self._depth:
+                depth_cam = self.robot.depth_cameras[cam_name]
+                depth = (depth_cam.record_image(dtype=np.uint16)
+                    .astype(np.float32)
+                    .squeeze(-1)
+                    / 1000)
+                obs[f"depth_{cam_name}"] = depth
+
+                if self._pcd:
+                    info_cam = self.cam_info[f"info_{cam_name}"]
+                    cam_pos = info_cam["pos"]
+                    cam_euler = info_cam["euler"]
+                    world_T_cam = pos_euler_to_hom(cam_pos, cam_euler)
+                    intrinsics = self.cam_info[f"intrinsics_{cam_name}"]
+                    pcd = depth_to_pcd(depth, intrinsics)
+                    pcd = transform_pcd(pcd, world_T_cam)
+                    obs[f"pcd_{cam_name}"] = pcd
+
+            if self._gripper_attn:
+                K = self.cam_info[f"intrinsics_{cam_name}"]["k"]
+                gr_px = project(gripper_pose, np.linalg.inv(world_T_cam), K)
+                gr_x, gr_y = gr_px[0], gr_px[1]
+                obs[f"gripper_uv_{cam_name}"] = [gr_y, gr_x]
 
         return obs
 
