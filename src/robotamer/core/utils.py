@@ -6,7 +6,9 @@ from datetime import datetime
 from PIL import Image
 
 from scipy.spatial.transform import Rotation
-
+from torchvision.transforms.functional import resize
+from torchvision.transforms import InterpolationMode
+from torchvision.transforms import Resize
 
 def get_timestamp():
     return datetime.now().strftime('%Y-%m-%dT%H-%M-%S')
@@ -30,14 +32,24 @@ def compute_goal_pose(dt, v_xyz, v_rpy, start_pose):
 
 
 def crop_center(im, crop_h, crop_w):
-    h, w = im.shape[0], im.shape[1]
+    h, w = im.shape[1], im.shape[2]
     start_x = w//2 - (crop_w//2)
     start_y = h//2 - (crop_h//2)    
-    return im[start_y:start_y+crop_w,start_x:start_x+crop_h], start_x, start_y
+    return im[:, start_y:start_y+crop_w,start_x:start_x+crop_h], start_x, start_y
 
 
-def resize(im, new_size, interpolation=cv2.INTER_LINEAR):
-    orig_h, orig_w = im.shape[0], im.shape[1]
+def resize(im, new_size, im_type="rgb"):
+    if im_type == "rgb":
+        interpolation = InterpolationMode.BILINEAR
+    elif im_type == "depth":
+        interpolation = InterpolationMode.NEAREST
+    elif im_type == "gripper_attn":
+        interpolation = InterpolationMode.NEAREST
+    elif im_type == "pc":
+        interpolation = InterpolationMode.NEAREST
+    
+    
+    orig_h, orig_w = im.shape[1], im.shape[2]
     if orig_h < orig_w:
         ratio = (new_size/orig_h)
     else:
@@ -45,8 +57,10 @@ def resize(im, new_size, interpolation=cv2.INTER_LINEAR):
     
     h_resize = int(orig_h * ratio)
     w_resize = int(orig_w * ratio)
-    
-    new_im = cv2.resize(im, dsize=(w_resize, h_resize), interpolation=interpolation)
+
+    resize = Resize((h_resize, w_resize), interpolation=interpolation)
+
+    new_im = resize(im)
     return new_im, ratio
 
 
