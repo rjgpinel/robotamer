@@ -8,6 +8,7 @@ import sys
 
 import numpy as np
 import lmdb
+import matplotlib.pyplot as plt
 
 from absl import app
 from absl import flags
@@ -64,14 +65,20 @@ class Dataset:
         rgb = torch.stack(rgb) 
         pc = torch.stack(pc) 
         action = np.concatenate([gripper_pose, np.array([int(gripper_state)])], axis=-1)
-
+        
+        # import pudb; pudb.set_trace()
         if self.crop_size:
+            rgb = rgb.permute(0, 3, 1, 2)
+            pc = pc.permute(0, 3, 1, 2)
+
+            rgb, ratio = resize(rgb, self.crop_size, im_type="rgb")
+            pc, ratio = resize(pc, self.crop_size, im_type="pc")
             rgb, start_x, start_y = crop_center(rgb, self.crop_size, self.crop_size)
             pc, start_x, start_y = crop_center(pc, self.crop_size, self.crop_size)
-            rgb, ratio = resize(rgb, self.crop_size, im_type="rgb")
-            pc, ratio = resize(rgb, self.crop_size, im_type="pc")
+            rgb = rgb.permute(0, 2, 3, 1)
+            pc = pc.permute(0, 2, 3, 1)
             for cam_name, uv in gripper_uv.items():
-                gripper_uv[cam_name] = [int(uv[0]*ratio) - start_y, int(uv[1]*ratio) - start_x]
+                gripper_uv[cam_name] = [int(uv[0]*ratio) - start_x, int(uv[1]*ratio) - start_y]
 
         keystep = {"rgb": rgb,
                    "pc": pc,
@@ -197,7 +204,7 @@ def main(args):
                        gripper_attn=True,
                        )
     
-        output_dir = Path(args.data_dir) / f"{args.task}+var{args.var}"
+        output_dir = Path(args.data_dir) / f"{args.task}+{args.var}"
         output_dir.mkdir(parents=True, exist_ok=True)
 
         dataset = Dataset(str(output_dir), camera_list=cam_list, crop_size=args.crop_size)

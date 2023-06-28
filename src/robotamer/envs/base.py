@@ -279,7 +279,7 @@ class BaseEnv(gym.Env):
                 K = self.cam_info[f"intrinsics_{cam_name}"]["K"]
                 gr_px = project(gripper_pose, np.linalg.inv(world_T_cam), K)
                 gr_x, gr_y = gr_px[0], gr_px[1]
-                obs[f"gripper_uv_{cam_name}"] = [gr_y, gr_x]
+                obs[f"gripper_uv_{cam_name}"] = [gr_x, gr_y]
 
         return obs
 

@@ -32,10 +32,10 @@ def compute_goal_pose(dt, v_xyz, v_rpy, start_pose):
 
 
 def crop_center(im, crop_h, crop_w):
-    h, w = im.shape[1], im.shape[2]
+    h, w = im.shape[-2], im.shape[-1]
     start_x = w//2 - (crop_w//2)
     start_y = h//2 - (crop_h//2)    
-    return im[:, start_y:start_y+crop_w,start_x:start_x+crop_h], start_x, start_y
+    return im[..., start_y:start_y+crop_w,start_x:start_x+crop_h], start_x, start_y
 
 
 def resize(im, new_size, im_type="rgb"):
@@ -49,7 +49,7 @@ def resize(im, new_size, im_type="rgb"):
         interpolation = InterpolationMode.NEAREST
     
     
-    orig_h, orig_w = im.shape[1], im.shape[2]
+    orig_h, orig_w = im.shape[-2], im.shape[-1]
     if orig_h < orig_w:
         ratio = (new_size/orig_h)
     else:

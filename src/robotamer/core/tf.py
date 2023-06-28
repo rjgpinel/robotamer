@@ -67,7 +67,7 @@ def depth_to_pcd(depth, intrinsics, depth_scale=1):
     pcd = np.zeros((h, w, 3))
 
     pcd[:, :, 0] = np.arange(w).repeat(h).reshape((w, h)).T # u -> x
-    pcd[:, :, 1] = np.arange(h).repeat(w).reshape(h, w) # v -> z
+    pcd[:, :, 1] = np.arange(h).repeat(w).reshape(h, w) # v -> y
     pcd[:, :, 2] = depth / depth_scale
 
 
