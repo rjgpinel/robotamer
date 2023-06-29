@@ -102,7 +102,7 @@ class BaseEnv(gym.Env):
                 self.robot.cameras[cam_name].intrinsics)
         self._np_random = np.random
 
-        self.neutral_gripper_orn = [pi, 0, 0] if arm == "right" else [pi, 0, pi / 2]
+        self.neutral_gripper_orn = [pi, 0, 0] if arm == "right" else [pi, 0, -pi / 2]
         self.safe_height = GRIPPER_HEIGHT_INIT[-1]
 
 
@@ -146,18 +146,21 @@ class BaseEnv(gym.Env):
         if home_only:
             return
 
-        if joints is not None:
-            print("Setting to custom config")
-            success = self.robot.set_config(joints)
-            config = self._get_current_config()
-            diff = np.subtract(config, joints)
+        # if joints is not None:
+        #     print("Setting to custom config")
+        #     success = self.robot.set_config(joints)
+        #     config = self._get_current_config()
+        #     diff = np.subtract(config, joints)
 
-            print("Current config vs. target; difference")
-            np.set_printoptions(suppress=True, linewidth=90)
-            print(np.array2string(
-                np.stack([config, joints, diff]), separator=", "))
-            print("EEF pose", self.robot.eef_pose())
-            np.set_printoptions(suppress=False, linewidth=75)
+        #     print("Current config vs. target; difference")
+        #     np.set_printoptions(suppress=True, linewidth=90)
+        #     print(np.array2string(
+        #         np.stack([config, joints, diff]), separator=", "))
+        #     print("EEF pose", self.robot.eef_pose())
+        #     np.set_printoptions(suppress=False, linewidth=75)
+
+
+        print(quat_to_euler(np.array(self.robot.eef_pose()[1]), False))
 
         if gripper_pos is not None or gripper_orn is not None:
             if gripper_pos is None:
@@ -169,6 +172,13 @@ class BaseEnv(gym.Env):
 
             print("Moving to cartesian pose", gripper_pos, gripper_orn)
             success = self.robot.go_to_pose(gripper_pos, gripper_orn, cartesian=True)
+
+        else:
+            gripper_pos = self.sample_random_gripper_pos()
+            gripper_orn = self.neutral_gripper_orn
+            success = self.robot.go_to_pose(gripper_pos, gripper_orn, cartesian=True)
+
+
 
         if not success:
             raise RuntimeError("Moving the robot to default position failed")
