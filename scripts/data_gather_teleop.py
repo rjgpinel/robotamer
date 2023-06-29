@@ -101,7 +101,7 @@ class Dataset:
             actions.append(keystep["action"])
 
         outs = {
-                "rgb": torch.stack(rgbs).float().numpy(),
+                "rgb": torch.stack(rgbs).numpy().astype(np.uint8),
                 "pc": torch.stack(pcs).float().numpy(),
                 "gripper_uv": gripper_uv,
                 "action": np.stack(actions).astype(np.float32),
