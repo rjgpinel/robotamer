@@ -402,13 +402,13 @@ class BaseEnv(gym.Env):
 
     def move(self, gripper_pos, gripper_quat=None, open_gripper=True):
 
-        gripper_pos = gripper_pos.astype(np.float)
-        gripper_quat = None
+        # gripper_pos = gripper_pos.astype(np.float)
+        # gripper_quat = None
 
         if gripper_quat is not None:
             gripper_orn = quat_to_euler(gripper_quat, False)
         else:
-            gripper_orn = [pi, 0, pi / 2]
+            gripper_orn = self.neutral_gripper_orn
         success = self.robot.go_to_pose(gripper_pos, gripper_orn, cartesian=True)
 
         if open_gripper:

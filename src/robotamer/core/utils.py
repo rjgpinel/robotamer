@@ -1,4 +1,3 @@
-import cv2
 import pinocchio as pin
 import numpy as np
 
