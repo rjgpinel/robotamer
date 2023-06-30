@@ -402,7 +402,7 @@ class BaseEnv(gym.Env):
 
     def move(self, gripper_pos, gripper_quat=None, open_gripper=True):
 
-        # gripper_pos = gripper_pos.astype(np.float)
+        gripper_pos = gripper_pos.astype(np.float32)
         # gripper_quat = None
 
         if gripper_quat is not None:
