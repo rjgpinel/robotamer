@@ -5,6 +5,8 @@ import rospy
 import robotamer.envs
 import torch
 import sys
+import tf
+import tf2_ros
 
 import numpy as np
 import lmdb
@@ -22,6 +24,8 @@ import msgpack_numpy
 msgpack_numpy.patch()
 
 
+DEFAULT_ROBOT_POS = [-0.46947826, -0.00696641,  0.09270071] 
+
 def get_args_parser():
     parser = argparse.ArgumentParser("Remote controller data gathering", add_help=False)
     parser.add_argument("--arm", default="left", type=str, help="left or right")
@@ -30,7 +34,7 @@ def get_args_parser():
     parser.add_argument("--data-dir", default="/scratch/azimov/rgarciap/corl2023/new_data/", type=str)
     parser.add_argument("--task", default="push_buttons", type=str)
     parser.add_argument("--var", default=0, type=int)
-    parser.add_argument("--crop-size", default=128)
+    parser.add_argument("--crop-size", default=None)
     parser.set_defaults(sim=False, debug=False)
     return parser
 
@@ -51,7 +55,7 @@ class Dataset:
         gripper_pos = obs["gripper_pos"]
         gripper_quat = obs["gripper_quat"]
         gripper_pose = np.concatenate([gripper_pos, gripper_quat])
-        gripper_state = obs["gripper_state"]
+        gripper_state = not obs["gripper_state"]
 
         rgb = []
         gripper_uv = {}
@@ -66,7 +70,6 @@ class Dataset:
         pc = torch.stack(pc) 
         action = np.concatenate([gripper_pose, np.array([int(gripper_state)])], axis=-1)
         
-        # import pudb; pudb.set_trace()
         if self.crop_size:
             rgb = rgb.permute(0, 3, 1, 2)
             pc = pc.permute(0, 3, 1, 2)
@@ -116,7 +119,7 @@ class Dataset:
     def done(self):
         self.lmdb_env.close()
 
-def teleop_callback(data, env, dataset, x_scale=0.15, y_scale=0.15, z_scale=0.05, x_rot_scale=0.15, y_rot_scale=0.15, z_rot_scale=0.15, debug=False):
+def teleop_callback(data, env, dataset, x_scale=0.2, y_scale=0.2, z_scale=0.05, x_rot_scale=0.15, y_rot_scale=0.15, z_rot_scale=0.4, debug=False):
     if debug:
         print('Received', data)
         print('eef', env.robot.eef_pose()[0])
@@ -125,6 +128,10 @@ def teleop_callback(data, env, dataset, x_scale=0.15, y_scale=0.15, z_scale=0.05
     left_joy_up = data.axes[1]
     right_joy_left = data.axes[2]
     right_joy_up = data.axes[3]
+    arrow_up = data.axes[5] == 1
+    arrow_down = data.axes[5] == -1
+    arrow_left = data.axes[4] == 1
+    arrow_right = data.axes[4] == -1
     x_rot = data.buttons[5]/2 - data.buttons[4]/2
     y_rot = data.buttons[7]/2 - data.buttons[6]/2
 
@@ -146,6 +153,22 @@ def teleop_callback(data, env, dataset, x_scale=0.15, y_scale=0.15, z_scale=0.05
         'linear_velocity': np.array([vx, vy, vz]),
         'angular_velocity': np.array([wx, wy, wz]),
     }
+    # for cam_name, cam in env.robot.cameras.items():
+    #     print(cam_name, cam.get_pose(), cam.intrinsics)
+
+
+    if arrow_up:
+        config = [-1.621986214314596, -1.6856768766986292, -0.799194637929098, -2.2098234335528772, 2.397007942199707, 1.5446336269378662]
+        env.set_configuration(config)
+    elif arrow_down:
+        config = [-1.7701666990863245, -1.3933590094195765, -1.4999244848834437, -1.6185596624957483, -2.32721454301943, -1.291170899068014]
+        env.set_configuration(config)
+    elif arrow_left:
+        config = [-0.9935057798968714, -1.093210522328512, -1.2754362265216272, -1.823784653340475, 2.1984200477600098, 0.7568539977073669]
+        env.set_configuration(config)
+    elif arrow_right:
+        config = [-0.7157200018512171, -1.1964781920062464, -1.0957358519183558, -1.759087387715475, 2.042008638381958, 1.0268582105636597]
+        env.set_configuration(config) 
 
     if open_gripper or close_gripper:
         action["grip_open"] = open_gripper - close_gripper
@@ -157,34 +180,23 @@ def teleop_callback(data, env, dataset, x_scale=0.15, y_scale=0.15, z_scale=0.05
         print("Dataset recorded")
         sys.exit()
     elif keystep:
-        obs = env.render()
+        obs = env.render(True)
         dataset.add_keystep(obs)
-        print("Keystep recorded")
+        print(f"Keystep {len(dataset.data)} recorded")
     elif save:
-        print('Finished episode; Resetting arm; Saving episode')
+        print('Finished episode; Resetting arm; Saving episode', dataset.episode_idx)
         dataset.save()
-        obs = env.reset()
+        obs = env.reset(gripper_pos=DEFAULT_ROBOT_POS)
         print('Reset finished')
         print('Ready to receive joystick controls')
     elif discard:
         print('Discard episode')
-        obs = env.reset()
+        dataset.reset()
+        obs = env.reset(gripper_pos=DEFAULT_ROBOT_POS)
         print('Reset finished')
         print('Ready to receive joystick controls')
     else:
-        # pass
         real_obs, done, reward, info = env.step(action)
-
-
-def test_displacement(env):
-    print('pose before:', env.robot.eef_pose())
-    for _ in range(4):
-        action = {
-            'linear_velocity': np.array([1, 0, 0]),
-            'angular_velocity': np.array([0, 0, 0]),
-        }
-        env.step(action)
-    print('pose after:', env.robot.eef_pose())
 
 
 def main(args):
@@ -194,23 +206,27 @@ def main(args):
         elif args.arm == 'right':
             cam_list = ['left_camera', 'spare_camera']
         else:
+            # cam_list = ['bravo_camera', 'charlie_camera', 'left_camera']
             cam_list = ['bravo_camera', 'charlie_camera']
         env = gym.make('RealRobot-Pick-v0',
                        cam_list=cam_list,
                        arm=args.arm,
-                       version="v0",
+                    #    version="legacy",
+                       version="wide",
                        depth=not args.sim,
                        pcd=not args.sim,
                        gripper_attn=True,
+                        grip_history_len=1,
                        )
-    
+
+
         output_dir = Path(args.data_dir) / f"{args.task}+{args.var}"
         output_dir.mkdir(parents=True, exist_ok=True)
 
         dataset = Dataset(str(output_dir), camera_list=cam_list, crop_size=args.crop_size)
-        real_obs = env.reset()
-        print('Cartesian pose', env.robot.eef_pose())
-        #print('Config', env.env._get_current_config())
+        
+
+        obs = env.reset(gripper_pos=DEFAULT_ROBOT_POS)
 
         x_scale = y_scale = 0.05
         env_step_callback = functools.partial(
@@ -218,7 +234,7 @@ def main(args):
             y_scale=y_scale, debug=args.debug)
         rospy.Subscriber('joy_teleop', Joy, env_step_callback, queue_size=1)
         print('Ready to receive joystick controls')
-        print('Observation fields', real_obs.keys())
+        print('Observation fields', obs.keys())
 
         rospy.spin()
 

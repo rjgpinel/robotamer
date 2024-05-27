@@ -7,29 +7,24 @@ SIM_DT = 0.2
 
 # Cameras configuration
 BRAVO_INFO = {
-    "pos": np.array([-0.494099, 0.703516, 0.396606]),
-    "euler": np.array([-1.936, 0.004, -3.139]),
+    "pos": np.array([-0.486534, 0.70895, 0.398287]),
+    "euler": np.array([-1.931, 0.014, -3.121]),
     "fovy": 42.5,
     "height": 480,
     "width": 640,
 }
-
 CHARLIE_INFO = {
-    "pos": np.array([-1.201099, 0.005, 0.403127]),
-    "euler": np.array([-2.094, -0.00250582, -1.56810664]),
-    "fovy": 42.5,
-    "height": 480,
-    "width": 640,
-}
-RIGHT_CAMERA_INFO = {
-    "pos": np.array([-1.201099, 0.005, 0.403127]),
-    "euler": np.array([1.04368278, -0.00250582, -1.56810664]),
+    "pos": np.array([ -1.199518, 0.003458, 0.400626]),
+    "euler": np.array([-2.095, -0.006, -1.550]),
     "fovy": 42.5,
     "height": 480,
     "width": 640,
 }
 
 CAM_INFO = {"bravo_camera": BRAVO_INFO, "charlie_camera": CHARLIE_INFO}
+
+# CAM_TF_TOPIC = {"bravo_camera": "bravo_camera_calibration_pose", "charlie_camera": "charlie_camera_calibration_pose", "left_camera": "left_camera_color_optical_frame"}
+CAM_TF_TOPIC = {"bravo_camera": "bravo_camera_color_optical_frame", "charlie_camera": "charlie_camera_color_optical_frame", "left_camera": "left_camera_color_optical_frame"}
 
 # Controller definition
 EEF_FRAME = {"left": "left_gripper_grasp_frame", "right": "right_gripper_grasp_frame"}
@@ -38,7 +33,9 @@ OVERSHOOT_FACTOR = 1.0  # Set to 0.0 for no overshoot
 N_SAMPLES_OVERSHOOT = 1
 MAX_VELOCITY_SCALING_FACTOR = 0.2
 MAX_ACCELERATION_SCALING_FACTOR = 0.2
+# PLANNING_TIME = 20.0
 PLANNING_TIME = 2.0
+# PLANNING_TIME = 10.0
 COMMAND_ROS_TOPIC = {"left": "/left_arm/scaled_pos_joint_traj_controller/command", "right": "/right_arm/scaled_pos_joint_traj_controller/command"}
 # COMMAND_ROS_TOPIC = "/left_arm/scaled_vel_joint_traj_controller/command" # Velocity controller
 EEF_STEPS = 0.01
@@ -67,9 +64,11 @@ TASK_START_CONFIG = {
 
 WORKSPACE = {
     # TODO: Define overlapping workspaces in v1.
-    "left": {"v0": np.array([[-0.695, -0.16, 0.00], [-0.295, 0.175, 0.2]]),
-             "v1": np.array([[-0.695, -0.16, 0.00], [-0.295, 0.175, 0.2]]),
-             "legacy": np.array([[-0.695, -0.175, 0.00], [-0.295, 0.175, 0.2]])},
+    "left": {"v0": np.array([[-0.695, -0.16, 0.01], [-0.295, 0.175, 0.2]]),
+             "v1": np.array([[-0.695, -0.16, 0.01], [-0.295, 0.175, 0.2]]),
+             "legacy": np.array([[-0.695, -0.175, 0.02], [-0.295, 0.175, 0.75]]),
+             "wide": np.array([[-1, -0.175, 0.01], [0.0, 0.40, 0.75]]),
+             "legacy-s2r": np.array([[-0.695, -0.175, 0.01], [-0.295, 0.175, 0.2]])},
     "right": {"v0": np.array([[0.295, -0.16, 0.00], [0.695, 0.175, 0.2]]),
               "v1": np.array([[0.295, -0.16, 0.00], [0.695, 0.175, 0.2]])},
 }

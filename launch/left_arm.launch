@@ -13,6 +13,8 @@
     <arg name="enable_right_camera" value="false"/>
     <arg name="enable_bravo_camera" value="true"/>
     <arg name="enable_charlie_camera" value="true"/>
+    <arg name="enable_delta_camera" value="false"/>
+    <arg name="enable_alpha_camera" value="false"/>
   </include>
 
   <node pkg="joy" type="joy_node" name="joy_node">
