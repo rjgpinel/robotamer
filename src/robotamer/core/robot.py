@@ -23,6 +23,7 @@ from robotamer.core.constants import (
     Q_VEL_THRESHOLD,
     ROBOT_BASE_FRAME,
     CAM_TF_TOPIC,
+    ROBOT_LINKS
 )
 from robotamer.core.utils import compute_goal_pose
 from sensor_msgs.msg import JointState
@@ -80,6 +81,10 @@ class Robot:
         self.tf_brodcaster = tf.TransformBroadcaster()
         # EEF transformation recorder
         self._eef_tf_recorder = TFRecorder(ROBOT_BASE_FRAME, self.eef_frame)
+        # Links transformation recorder
+        self.robot_links = ROBOT_LINKS[arm]
+        self._links_tf_recorder = {link: TFRecorder(ROBOT_BASE_FRAME, link) for link in self.robot_links}
+
         # Joints state recorder
         self.joints_state_recorder = JointStateRecorder()
 
@@ -202,6 +207,26 @@ class Robot:
 
     def joints_state(self):
         return self.joints_state_recorder.record_state()
+    
+    def links_pose(self):
+        links_poses = {}
+        for link_name, link_tf_recorder in self._links_tf_recorder.items():
+            link_tf = link_tf_recorder.record_tf().transform
+            link_pose = [np.array([
+                link_tf.translation.x,
+                link_tf.translation.y,
+                link_tf.translation.z
+                ]),
+            np.array([
+                link_tf.rotation.x,
+                link_tf.rotation.y,
+                link_tf.rotation.z,
+                link_tf.rotation.w
+            ])
+            ]
+            links_poses[link_name] = link_pose
+        return links_poses
+        
 
     def move_relative(self, dt, v_xyz, v_rpy):
         # FIXME: https://github.com/ros-planning/moveit/issues/773

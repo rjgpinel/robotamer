@@ -28,6 +28,30 @@ CAM_TF_TOPIC = {"bravo_camera": "bravo_camera_color_optical_frame", "charlie_cam
 
 # Controller definition
 EEF_FRAME = {"left": "left_gripper_grasp_frame", "right": "right_gripper_grasp_frame"}
+ROBOT_LINKS = {"left": ["left_base_link", 
+                        "left_shoulder_link", 
+                        "left_upper_arm_link", 
+                        "left_forearm_link", 
+                        "left_wrist_1_link", 
+                        "left_wrist_2_link", 
+                        "left_wrist_3_link", 
+                        "left_ft300_mounting_plate", 
+                        "left_ft300_sensor", 
+                        "left_camera_link", 
+                        "left_gripper_body", 
+                        "left_gripper_bracket", 
+                        "left_gripper_finger_1_finger_tip", 
+                        "left_gripper_finger_1_flex_finger", 
+                        "left_gripper_finger_1_safety_shield",
+                        "left_gripper_finger_1_truss_arm",
+                        "left_gripper_finger_1_moment_arm",
+                        "left_gripper_finger_2_finger_tip",
+                        "left_gripper_finger_2_flex_finger", 
+                        "left_gripper_finger_2_safety_shield",
+                        "left_gripper_finger_2_truss_arm",
+                        "left_gripper_finger_2_moment_arm",
+                        ], 
+                        "right": ["right_base_link"]}
 ROBOT_BASE_FRAME = "prl_ur5_base"
 OVERSHOOT_FACTOR = 1.0  # Set to 0.0 for no overshoot
 N_SAMPLES_OVERSHOOT = 1

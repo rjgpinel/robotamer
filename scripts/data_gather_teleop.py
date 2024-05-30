@@ -86,7 +86,8 @@ class Dataset:
         keystep = {"rgb": rgb,
                    "pc": pc,
                    "gripper_uv": gripper_uv,
-                   "action": action}
+                   "action": action,
+                   "robot_info": obs["robot_info"]}
 
         self.data.append(keystep)
 
@@ -96,18 +97,21 @@ class Dataset:
         pcs = []
         gripper_uv = []
         actions = []
+        robot_info = []
 
         for keystep in self.data:
             rgbs.append(keystep["rgb"])
             pcs.append(keystep["pc"])
             gripper_uv.append(keystep["gripper_uv"])
             actions.append(keystep["action"])
+            robot_info.append(keystep["robot_info"])
 
         outs = {
                 "rgb": torch.stack(rgbs).numpy().astype(np.uint8),
                 "pc": torch.stack(pcs).float().numpy(),
                 "gripper_uv": gripper_uv,
                 "action": np.stack(actions).astype(np.float32),
+                "robot_info": robot_info,
             }
 
         txn = self.lmdb_env.begin(write=True)

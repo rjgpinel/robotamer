@@ -286,6 +286,7 @@ class BaseEnv(gym.Env):
                 gr_x, gr_y = gr_px[0], gr_px[1]
                 obs[f"gripper_uv_{cam_name}"] = [gr_x, gr_y]
 
+            obs["robot_info"] = self.robot.links_pose()
         return obs
 
     def close(self):
