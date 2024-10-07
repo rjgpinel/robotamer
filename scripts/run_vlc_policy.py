@@ -30,24 +30,29 @@ msgpack_numpy.patch()
 
 warnings.filterwarnings("ignore")
 
-DEFAULT_ROBOT_POS = [-0.46947826, -0.00696641,  0.09270071] 
+DEFAULT_ROBOT_POS = [-0.1876253 ,  0.18788611,  0.11547332]
 
-NUM_STEPS = {"real_push_buttons": 7, "real_stack_cup": 7, "real_put_fruit_in_box":7, "real_put_item_in_cabinet": 9, "push_buttons": 6, "real_open_drawer": 3, "real_put_plate": 7, "real_put_item_in_drawer":10, "real_hang_mug": 5}
-ONLY_CARTESIAN = {"real_push_buttons": True, "real_stack_cup": True, "real_put_fruit_in_box": False, "real_put_item_in_cabinet": False, "push_buttons": True, "real_open_drawer": False , "real_take_plate": False, "real_put_item_in_drawer":False, "real_hang_mug":False}
+NUM_STEPS = {"real_push_buttons": 7, "real_stack_cup": 10, "real_put_fruit_in_box":7, "real_put_item_in_cabinet": 9, "push_buttons": 6, "real_open_drawer": 8, "real_put_plate": 7, "real_put_item_in_drawer":10, "real_hang_mug": 5}
+ONLY_CARTESIAN = {"real_push_buttons": True, "real_stack_cup": True, "real_put_fruit_in_box": False, "real_put_item_in_cabinet": False, "push_buttons": True, "real_open_drawer": False , "real_take_plate": False, "real_put_item_in_drawer": False, "real_hang_mug": True}
 
 class Arguments(tap.Tap):
     exp_config: str
     device: str = "cuda"
     num_demos: int = 10
-    image_size: int = 128
+    image_size: int = 256
     # cam_list: List[str] = ["bravo_camera","charlie_camera"]
-    cam_list: List[str] = ["bravo_camera","charlie_camera","left_camera"]
+    # cam_list: List[str] = ["bravo_camera","charlie_camera","left_camera"]
+    cam_list: List[str] = ["bravo_camera","charlie_camera","alpha_camera"]
+    # cam_list: List[str] = ["bravo_camera","charlie_camera"]
+    # cam_list: List[str] = ["charlie_camera","alpha_camera"]
+    # cam_list: List[str] = ["bravo_camera","charlie_camera","alpha_camera", "bravo_camera"]
+    # cam_list: List[str] = ["bravo_camera","charlie_camera"]
     # cam_list: List[str] = ["bravo_camera","charlie_camera","bravo_camera", "charlie_camera"]
     arm: str = "left"
     env_name: str = "RealRobot-Pick-v0"
     # arch: str = "robo3d"
-    # arch: str = "polarnet"
-    arch: str = "hiveformer"
+    arch: str = "polarnet"
+    # arch: str = "hiveformer"
     save_obs_outs_dir: str = None
     checkpoint: str = None
     taskvar: str = "real_push_buttons+0"
@@ -69,6 +74,29 @@ def process_keystep(obs, cam_list=["bravo_camera", "charlie_camera", "left_camer
     rgb = torch.stack(rgb)  # (C, H, W, 3)
     pc = torch.stack(pc)    # (C, H, W, 3)
         
+    # import pudb;pudb.set_trace()
+
+    # TABLE_HEIGHT = 0.015 # meters
+
+    # X_BBOX = (-0.60, 0.2)        # 0 is the robot base
+    # Y_BBOX = (-0.54, 0.54)  # 0 is the robot base
+    # Z_BBOX = (0, 0.75)      # 0 is the table 
+
+    # pc = pc.reshape(-1,3)
+    # rgb = rgb.reshape(-1,3)
+    # masks = (pc[:, 0] > X_BBOX[0]) & (pc[:, 0] < X_BBOX[1]) & \
+    #     (pc[:, 1] > Y_BBOX[0]) & (pc[:, 1] < Y_BBOX[1]) & \
+    #     (pc[:, 2] > Z_BBOX[0]) & (pc[:, 2] < Z_BBOX[1])
+    # masks = masks & (pc[:, 2] > TABLE_HEIGHT)
+    # rgb = rgb[masks]
+    # pc = pc[masks]
+
+    # import open3d as o3d    
+    # pcd = o3d.geometry.PointCloud()
+    # pcd.points = o3d.utility.Vector3dVector(pc)
+    # pcd.colors = o3d.utility.Vector3dVector(rgb/255)    
+    # o3d.visualization.draw_geometries([pcd]) 
+
     if crop_size:
         rgb = rgb.permute(0, 3, 1, 2)
         pc = pc.permute(0, 3, 1, 2)
@@ -81,6 +109,8 @@ def process_keystep(obs, cam_list=["bravo_camera", "charlie_camera", "left_camer
         pc = pc.permute(0, 2, 3, 1)
         for cam_name, uv in gripper_uv.items():
             gripper_uv[cam_name] = [int(uv[0]*ratio) - start_x, int(uv[1]*ratio) - start_y]
+
+
 
 
     im_height, im_width = rgb.shape[1], rgb.shape[2]
@@ -203,7 +233,15 @@ def main(args):
             quat = deepcopy(action[3:7]).astype(np.double)
             # open_gripper = action[7] >= 0.5 if step_id > 0 else True
             open_gripper = action[7] >= 0.5
-            # open_gripper = action[7] >= 0.5 if step_id > 0 and step_id !=4 else True
+
+            # if args.taskvar == "real_put_item_in_drawer+0" and step_id == 3:
+            #     pos = np.array([-0.499, 0.0433, 0.0876])
+            #     quat = np.array([0.03567591, -0.999, -0.00475, 0.00085768])
+            #     open_gripper = True
+            # elif args.taskvar == "real_put_item_in_drawer+0" and step_id == 0:
+            #     pos = np.array([-0.37508285, 0.2679, 0.2571])
+            #     quat = np.array([-0.31017, -0.6385795, 0.29739, -0.63840])
+            #     open_gripper = True
 
             print("Predicting step:", step_id, f"Open gripper {open_gripper}")
 

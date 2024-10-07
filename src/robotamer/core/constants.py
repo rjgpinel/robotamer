@@ -7,24 +7,33 @@ SIM_DT = 0.2
 
 # Cameras configuration
 BRAVO_INFO = {
-    "pos": np.array([-0.486534, 0.70895, 0.398287]),
-    "euler": np.array([-1.931, 0.014, -3.121]),
-    "fovy": 42.5,
-    "height": 480,
-    "width": 640,
-}
-CHARLIE_INFO = {
-    "pos": np.array([ -1.199518, 0.003458, 0.400626]),
-    "euler": np.array([-2.095, -0.006, -1.550]),
+    "pos": np.array([-0.192736, 0.835309,0.700992]),
+    "euler": np.array([-2.227, 0.011, 3.142]),
     "fovy": 42.5,
     "height": 480,
     "width": 640,
 }
 
-CAM_INFO = {"bravo_camera": BRAVO_INFO, "charlie_camera": CHARLIE_INFO}
+CHARLIE_INFO = {
+    "pos": np.array([-0.670188, -0.558114, 0.597616]),
+    "euler": np.array([-2.355, -0.100,  -0.517]),
+    "fovy": 42.5,
+    "height": 480,
+    "width": 640,
+}
+
+ALPHA_INFO = {
+    "pos": np.array([0.131421, -0.626980, 0.818875]),
+    "euler": np.array([-2.467, 0.026, 0.475]),
+    "fovy": 42.5,
+    "height": 480,
+    "width": 640,
+}
+
+CAM_INFO = {"bravo_camera": BRAVO_INFO, "charlie_camera": CHARLIE_INFO, "alpha_camera": ALPHA_INFO}
 
 # CAM_TF_TOPIC = {"bravo_camera": "bravo_camera_calibration_pose", "charlie_camera": "charlie_camera_calibration_pose", "left_camera": "left_camera_color_optical_frame"}
-CAM_TF_TOPIC = {"bravo_camera": "bravo_camera_color_optical_frame", "charlie_camera": "charlie_camera_color_optical_frame", "left_camera": "left_camera_color_optical_frame"}
+CAM_TF_TOPIC = {"bravo_camera": "bravo_camera_color_optical_frame", "charlie_camera": "charlie_camera_color_optical_frame", "alpha_camera": "alpha_camera_color_optical_frame"}
 
 # Controller definition
 EEF_FRAME = {"left": "left_gripper_grasp_frame", "right": "right_gripper_grasp_frame"}
@@ -80,9 +89,12 @@ TASK_START_CONFIG = {
         # ]
     },
     "left": {
-        "v0": [
-            -1.0338895956622522, -1.3494389692889612, -1.8950207869159144, -1.932540241871969, -2.2173264662372034, -2.266449276600973
-        ]
+        # "v0": [
+        #     -1.0338895956622522, -1.3494389692889612, -1.8950207869159144, -1.932540241871969, -2.2173264662372034, -2.266449276600973
+        # ],
+        "v0": list(np.pi*np.array([
+            18, -69, 67, -87, -94, 17
+        ])/180)
     }
 }
 
@@ -91,7 +103,7 @@ WORKSPACE = {
     "left": {"v0": np.array([[-0.695, -0.16, 0.01], [-0.295, 0.175, 0.2]]),
              "v1": np.array([[-0.695, -0.16, 0.01], [-0.295, 0.175, 0.2]]),
              "legacy": np.array([[-0.695, -0.175, 0.02], [-0.295, 0.175, 0.75]]),
-             "wide": np.array([[-1, -0.175, 0.01], [0.0, 0.40, 0.75]]),
+             "wide": np.array([[-0.50, -0.54, 0.01], [0.0, 0.54, 0.75]]),
              "legacy-s2r": np.array([[-0.695, -0.175, 0.01], [-0.295, 0.175, 0.2]])},
     "right": {"v0": np.array([[0.295, -0.16, 0.00], [0.695, 0.175, 0.2]]),
               "v1": np.array([[0.295, -0.16, 0.00], [0.695, 0.175, 0.2]])},

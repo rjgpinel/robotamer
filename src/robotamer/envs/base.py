@@ -35,12 +35,9 @@ DEFAULT_CONF = {
     #     -2.199114857512855,
     #     -2.3387411976724017,
     # ],
-    "left": [-1.2503355185138147, 
-             -1.2849968115436, 
-             -1.962480370198385, 
-             -1.7626579443561, 
-             -2.298645083104269, 
-             -2.006246868764059],
+    "left": list(np.pi*np.array([
+            16, -70, 69, -89, -90, -74
+        ])/180),
     "right": [
         # Home config at a height of 4.0cm
         1.1697157621383667,
@@ -100,7 +97,7 @@ class BaseEnv(gym.Env):
                 self.robot.cameras[cam_name].intrinsics)
         self._np_random = np.random
 
-        self.neutral_gripper_orn = [pi, 0, 0] if arm == "right" else [pi, 0, -pi / 2]
+        self.neutral_gripper_orn = [pi, 0, 0] if arm == "right" else [pi, 0, pi]
         self.safe_height = GRIPPER_HEIGHT_INIT[-1]
 
 
@@ -215,8 +212,12 @@ class BaseEnv(gym.Env):
             processed_action["angular_velocity"],
         )
 
+        no_render = True
         self.rate.sleep()
-        obs = self.render()
+        if not no_render:
+            obs = self.render()
+        else:
+            obs = None
 
         # Default real robot outputs
         success = False

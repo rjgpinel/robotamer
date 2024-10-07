@@ -8,6 +8,8 @@ import sys
 import tf
 import tf2_ros
 
+
+import pickle as pkl
 import numpy as np
 import lmdb
 import matplotlib.pyplot as plt
@@ -24,7 +26,8 @@ import msgpack_numpy
 msgpack_numpy.patch()
 
 
-DEFAULT_ROBOT_POS = [-0.46947826, -0.00696641,  0.09270071] 
+DEFAULT_ROBOT_POS = [-0.1876253 ,  0.18788611,  0.11547332]
+
 
 def get_args_parser():
     parser = argparse.ArgumentParser("Remote controller data gathering", add_help=False)
@@ -40,13 +43,14 @@ def get_args_parser():
 
 
 class Dataset:
-    def __init__(self, output_dir, camera_list, crop_size=None):
+    def __init__(self, output_dir, camera_list, crop_size=None, links_bbox=None):
         self.output_dir = output_dir
         self.lmdb_env = lmdb.open(str(self.output_dir), map_size=int(1024**4))
         self.data = []
         self.episode_idx = 0
         self.camera_list = camera_list
         self.crop_size = crop_size
+        self.links_bbox=links_bbox
 
     def reset(self):
         self.data = []
@@ -60,58 +64,82 @@ class Dataset:
         rgb = []
         gripper_uv = {}
         pc = []
+        depth = []
         for cam_name in self.camera_list:
             rgb.append(torch.from_numpy(obs[f"rgb_{cam_name}"]))
             pc.append(torch.from_numpy(obs[f"pcd_{cam_name}"]))
+            depth.append(torch.from_numpy(obs[f"depth_{cam_name}"]))
             gripper_uv[cam_name] = obs[f"gripper_uv_{cam_name}"]
 
 
         rgb = torch.stack(rgb) 
         pc = torch.stack(pc) 
+        depth = torch.stack(depth) 
         action = np.concatenate([gripper_pose, np.array([int(gripper_state)])], axis=-1)
         
         if self.crop_size:
             rgb = rgb.permute(0, 3, 1, 2)
             pc = pc.permute(0, 3, 1, 2)
+            depth = depth.permute(0, 3, 1, 2)
 
             rgb, ratio = resize(rgb, self.crop_size, im_type="rgb")
             pc, ratio = resize(pc, self.crop_size, im_type="pc")
+            depth, ratio = resize(depth, self.crop_size, im_type="pc")
             rgb, start_x, start_y = crop_center(rgb, self.crop_size, self.crop_size)
             pc, start_x, start_y = crop_center(pc, self.crop_size, self.crop_size)
+            depth, start_x, start_y = crop_center(depth, self.crop_size, self.crop_size)
             rgb = rgb.permute(0, 2, 3, 1)
             pc = pc.permute(0, 2, 3, 1)
+            depth = depth.permute(0, 2, 3, 1)
             for cam_name, uv in gripper_uv.items():
                 gripper_uv[cam_name] = [int(uv[0]*ratio) - start_x, int(uv[1]*ratio) - start_y]
 
+
+        robot_info = obs["robot_info"]
+        bbox_info = {}
+        pose_info = {}
+        for link_name, link_pose in robot_info.items():
+            pose_info[f"{link_name}_pose"] = link_pose
+            bbox_info[f"{link_name}_bbox"] = self.links_bbox[link_name]
+
         keystep = {"rgb": rgb,
                    "pc": pc,
+                   "depth": depth,
                    "gripper_uv": gripper_uv,
                    "action": action,
-                   "robot_info": obs["robot_info"]}
+                   "bbox_info": bbox_info,
+                   "pose_info": pose_info}
 
+           
         self.data.append(keystep)
 
     def save(self):
         
         rgbs = []
         pcs = []
+        depths = []
         gripper_uv = []
         actions = []
-        robot_info = []
+        bbox_info = []
+        pose_info = []
 
         for keystep in self.data:
             rgbs.append(keystep["rgb"])
             pcs.append(keystep["pc"])
+            depths.append(keystep["depth"])
             gripper_uv.append(keystep["gripper_uv"])
             actions.append(keystep["action"])
-            robot_info.append(keystep["robot_info"])
+            bbox_info.append(keystep["bbox_info"])
+            pose_info.append(keystep["pose_info"])
 
         outs = {
                 "rgb": torch.stack(rgbs).numpy().astype(np.uint8),
                 "pc": torch.stack(pcs).float().numpy(),
+                "depth": torch.stack(depths).float().numpy(),
                 "gripper_uv": gripper_uv,
                 "action": np.stack(actions).astype(np.float32),
-                "robot_info": robot_info,
+                "bbox_info": bbox_info,
+                "pose_info": pose_info,
             }
 
         txn = self.lmdb_env.begin(write=True)
@@ -146,8 +174,8 @@ def teleop_callback(data, env, dataset, x_scale=0.2, y_scale=0.2, z_scale=0.05, 
     open_gripper = data.buttons[2]  # B
     close_gripper = data.buttons[1]  # A
 
-    vx = x_scale * -left_joy_up
-    vy = y_scale * -left_joy_left
+    vx = x_scale * -left_joy_left
+    vy = y_scale * left_joy_up
     vz = z_scale * right_joy_up
     wx = x_rot_scale * -x_rot
     wy = y_rot_scale * -y_rot
@@ -162,16 +190,16 @@ def teleop_callback(data, env, dataset, x_scale=0.2, y_scale=0.2, z_scale=0.05, 
 
 
     if arrow_up:
-        config = [-1.621986214314596, -1.6856768766986292, -0.799194637929098, -2.2098234335528772, 2.397007942199707, 1.5446336269378662]
+        config = np.array([-77, -113, -89, -153, 13, 90]) * np.math.pi / 180
         env.set_configuration(config)
     elif arrow_down:
-        config = [-1.7701666990863245, -1.3933590094195765, -1.4999244848834437, -1.6185596624957483, -2.32721454301943, -1.291170899068014]
+        config = np.array([4, -119, 118, -88, -89, -90]) * np.math.pi / 180
         env.set_configuration(config)
     elif arrow_left:
-        config = [-0.9935057798968714, -1.093210522328512, -1.2754362265216272, -1.823784653340475, 2.1984200477600098, 0.7568539977073669]
+        config = np.array([-93, -141, -70, 32, -48, -90]) * np.math.pi / 180
         env.set_configuration(config)
     elif arrow_right:
-        config = [-0.7157200018512171, -1.1964781920062464, -1.0957358519183558, -1.759087387715475, 2.042008638381958, 1.0268582105636597]
+        config = np.array([54, -39, 56, -15, -126, 90]) * np.math.pi / 180
         env.set_configuration(config) 
 
     if open_gripper or close_gripper:
@@ -211,7 +239,7 @@ def main(args):
             cam_list = ['left_camera', 'spare_camera']
         else:
             # cam_list = ['bravo_camera', 'charlie_camera', 'left_camera']
-            cam_list = ['bravo_camera', 'charlie_camera']
+            cam_list = ['bravo_camera', 'charlie_camera', 'alpha_camera']
         env = gym.make('RealRobot-Pick-v0',
                        cam_list=cam_list,
                        arm=args.arm,
@@ -223,11 +251,15 @@ def main(args):
                         grip_history_len=1,
                        )
 
-
+        # print(env.robot.eef_pose())
+        # exit()
         output_dir = Path(args.data_dir) / f"{args.task}+{args.var}"
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        dataset = Dataset(str(output_dir), camera_list=cam_list, crop_size=args.crop_size)
+        with open("/home/rgarciap/catkin_ws/src/robotamer/src/robotamer/assets/real_robot_bbox_info.pkl", "rb") as f:
+            links_bbox = pkl.load(f)
+
+        dataset = Dataset(str(output_dir), camera_list=cam_list, crop_size=args.crop_size, links_bbox=links_bbox)
         
 
         obs = env.reset(gripper_pos=DEFAULT_ROBOT_POS)

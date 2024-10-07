@@ -212,18 +212,16 @@ class Robot:
         links_poses = {}
         for link_name, link_tf_recorder in self._links_tf_recorder.items():
             link_tf = link_tf_recorder.record_tf().transform
-            link_pose = [np.array([
+            link_pose = np.array([
                 link_tf.translation.x,
                 link_tf.translation.y,
-                link_tf.translation.z
-                ]),
-            np.array([
+                link_tf.translation.z,
                 link_tf.rotation.x,
                 link_tf.rotation.y,
                 link_tf.rotation.z,
                 link_tf.rotation.w
             ])
-            ]
+            
             links_poses[link_name] = link_pose
         return links_poses
         
@@ -336,11 +334,6 @@ class Robot:
 
         command = GripperCommandActionGoal()
 
-        if state == "open":
-            self._grip_velocity = 2
-        else:
-            self._grip_velocity = -2
-
         if self._grasped and state == "close":
             # Return if it was already closed and command to close
             return
@@ -357,7 +350,12 @@ class Robot:
             self.add_gripper_box()
         # self._gripper_publisher.publish(command)
         self.gripper.set_named_target(state)
-        self.gripper.go(wait=wait)
+        success = self.gripper.go(wait=wait)
+        if success:
+            if state == "open":
+                self._grip_velocity = 2
+            else:
+                self._grip_velocity = -2
         # rospy.sleep(6)
 
     def swap_state(self, wait=True):
@@ -370,7 +368,16 @@ class Robot:
             self._grip_velocity = 2
             next_state = "close"
         self.gripper.set_named_target(next_state)
-        self.gripper.go(wait=wait)
+        success = self.gripper.go(wait=wait)
+        if success:
+            if self._grasped:
+                self._grip_velocity = -2
+                self._grasped = False
+            else:
+                self._grasped = True
+                self._grip_velocity = 2
+
+            
 
     def set_config(self, q):
         success = self.arm.go(q, wait=True)
@@ -406,6 +413,9 @@ class Robot:
                     break
 
             if (not valid or fraction < 1.0) and not only_cartesian:
+                no_cartesian = input("sure to run non cartesian?")
+                if not no_cartesian:
+                    return False
                 for i in range(2):
                     self.arm.set_pose_target(gripper_pose)
                     success = self.arm.go(wait=True)
