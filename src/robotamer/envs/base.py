@@ -27,25 +27,21 @@ from robotamer.core.tf import depth_to_pcd, pos_euler_to_hom, transform_pcd, pro
 GRIPPER_HEIGHT_INIT = np.array([0.06, 0.10])
 
 DEFAULT_CONF = {
-    # "left": [
-    #     -0.9773843811168246,
-    #     -1.7627825445142729,
-    #     -2.321287905152458,
-    #     -1.1344640137963142,
-    #     -2.199114857512855,
-    #     -2.3387411976724017,
-    # ],
-    "left": list(np.pi*np.array([
-            16, -70, 69, -89, -90, -74
-        ])/180),
+    "left": [
+      0.2792526803190927, 
+      -1.2217304763960306,
+      1.2042771838760873, 
+      -1.5533430342749535, 
+      -1.5707963267948966, 
+      -1.2915436464758039],
     "right": [
-        # Home config at a height of 4.0cm
-        1.1697157621383667,
-        -1.6209071318255823,
-        1.3057317733764648,
-        -0.8799679915057581,
-        2.284698247909546,
-        0.5466184616088867
+      # Home config at a height of 4.0cm
+      1.1697157621383667,
+      -1.6209071318255823,
+      1.3057317733764648,
+      -0.8799679915057581,
+      2.284698247909546,
+      0.5466184616088867
     ]
 }
 
@@ -99,8 +95,7 @@ class BaseEnv(gym.Env):
 
         self.neutral_gripper_orn = [pi, 0, 0] if arm == "right" else [pi, 0, pi]
         self.safe_height = GRIPPER_HEIGHT_INIT[-1]
-
-
+        
         self.velocity_subscriber = rospy.Subscriber(
             f"{arm}_eef_velocity", Vector3, self.get_eef_velocity, queue_size=1)
         self.eef_velocity = np.array([0., 0., 0.])
@@ -146,6 +141,21 @@ class BaseEnv(gym.Env):
         if home_only:
             return
 
+        if joints is not None:
+            print("Setting to custom config")
+            success = self.robot.set_config(joints)
+            config = self._get_current_config()
+            diff = np.subtract(config, joints)
+
+            print("Current config vs. target; difference")
+            np.set_printoptions(suppress=True, linewidth=90)
+            print(np.array2string(
+                np.stack([config, joints, diff]), separator=", "))
+            print("EEF pose", self.robot.eef_pose())
+            np.set_printoptions(suppress=False, linewidth=75)
+
+
+        print(quat_to_euler(np.array(self.robot.eef_pose()[1]), False))
         if gripper_pos is not None or gripper_orn is not None:
             if gripper_pos is None:
                 gripper_pos = self.robot.eef_pose()[0]
@@ -156,11 +166,12 @@ class BaseEnv(gym.Env):
 
             print("Moving to cartesian pose", gripper_pos, gripper_orn)
             success = self.robot.go_to_pose(gripper_pos, gripper_orn, cartesian=True)
-
+        
+        # Random gripper pose
         # else:
-            # gripper_pos = self.sample_random_gripper_pos()
-            # gripper_orn = self.neutral_gripper_orn
-            # success = self.robot.go_to_pose(gripper_pos, gripper_orn, cartesian=True)
+        #    gripper_pos = self.sample_random_gripper_pos()
+        #    gripper_orn = self.neutral_gripper_orn
+        #    success = self.robot.go_to_pose(gripper_pos, gripper_orn, cartesian=True)
 
 
 
@@ -193,10 +204,8 @@ class BaseEnv(gym.Env):
 
             if grip_open_mean >= 0:
                 self.robot.move_gripper("open", wait=True)
-                # self.robot.move_gripper("open", wait=False)
             else:
                 self.robot.move_gripper("close", wait=True)
-                # self.robot.move_gripper("close", wait=False)
 
         processed_action["linear_velocity"] = (
             action["linear_velocity"] * SIM_DT / REAL_DT
