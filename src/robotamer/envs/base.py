@@ -27,39 +27,29 @@ from robotamer.core.tf import depth_to_pcd, pos_euler_to_hom, transform_pcd, pro
 GRIPPER_HEIGHT_INIT = np.array([0.06, 0.10])
 
 DEFAULT_CONF = {
-    # "left": [
-    #     -0.9773843811168246,
-    #     -1.7627825445142729,
-    #     -2.321287905152458,
-    #     -1.1344640137963142,
-    #     -2.199114857512855,
-    #     -2.3387411976724017,
-    # ],
     "left": [
-        # Home config at a height of 4.0cm when gripper is closed
-        -0.8949573675738733,
-        -1.4595039526568812,
-        -1.981619660054342,
-        -1.8102577368365687,
-        -2.160128418599264,
-        -2.4164560476886194
-    ],
+      0.2792526803190927, 
+      -1.2217304763960306,
+      1.2042771838760873, 
+      -1.5533430342749535, 
+      -1.5707963267948966, 
+      -1.2915436464758039],
     "right": [
-        # Home config at a height of 4.0cm
-        1.1697157621383667,
-        -1.6209071318255823,
-        1.3057317733764648,
-        -0.8799679915057581,
-        2.284698247909546,
-        0.5466184616088867
+      # Home config at a height of 4.0cm
+      1.1697157621383667,
+      -1.6209071318255823,
+      1.3057317733764648,
+      -0.8799679915057581,
+      2.284698247909546,
+      0.5466184616088867
     ]
 }
-
 
 class BaseEnv(gym.Env):
     def __init__(
         self,
         cam_list=["bravo_camera", "charlie_camera"],
+        cam_async=True,
         depth=False,
         pcd=False,
         gripper_attn=False,
@@ -67,6 +57,7 @@ class BaseEnv(gym.Env):
         arm="left",
         version="legacy",
         open_gripper=True,
+        grip_history_len = 5,
     ):
         rospy.init_node("env_node", log_level=rospy.INFO)
 
@@ -83,7 +74,7 @@ class BaseEnv(gym.Env):
         self.cam_list = cam_list
 
         # Controller
-        self.robot = Robot(self.workspace, cam_list, depth=depth, arm=arm,
+        self.robot = Robot(self.workspace, cam_list, cam_async=cam_async, depth=depth, arm=arm,
                            open_gripper=open_gripper)
         self.arm_name = arm
 
@@ -91,7 +82,7 @@ class BaseEnv(gym.Env):
         self._depth = depth
         self._pcd = pcd
         self._gripper_attn = gripper_attn
-        self._grip_history = deque(maxlen=5)
+        self._grip_history = deque(maxlen=grip_history_len)
 
         # Cam info
         self.cam_info = {}
@@ -102,10 +93,9 @@ class BaseEnv(gym.Env):
                 self.robot.cameras[cam_name].intrinsics)
         self._np_random = np.random
 
-        self.neutral_gripper_orn = [pi, 0, 0] if arm == "right" else [pi, 0, -pi / 2]
+        self.neutral_gripper_orn = [pi, 0, 0] if arm == "right" else [pi, 0, pi]
         self.safe_height = GRIPPER_HEIGHT_INIT[-1]
-
-
+        
         self.velocity_subscriber = rospy.Subscriber(
             f"{arm}_eef_velocity", Vector3, self.get_eef_velocity, queue_size=1)
         self.eef_velocity = np.array([0., 0., 0.])
@@ -120,7 +110,7 @@ class BaseEnv(gym.Env):
         )
         return position
 
-    def _get_current_config(self):
+    def get_current_config(self):
         variables = self.robot.commander.get_current_variable_values()
         config_joints = [f"{self.arm_name}_{k}" for k in [
             "shoulder_pan_joint",
@@ -131,10 +121,15 @@ class BaseEnv(gym.Env):
             "wrist_3_joint"]]
         config = [variables[k] for k in config_joints]
         return config
+    
+
+    def set_configuration(self, config):
+        success = self.robot.set_config(config)
+        return success
 
     def _reset(self, gripper_pos=None, gripper_orn=None, open_gripper=True, joints=None, home_only=False, **kwargs):
         print("Returning to home config")
-        config = self._get_current_config()
+        config = self.get_current_config()
         diff = np.sum(np.subtract(config, self.home_config))
    
         success = self.robot.set_config(self.home_config) if diff >= 0.001 else True
@@ -146,22 +141,21 @@ class BaseEnv(gym.Env):
         if home_only:
             return
 
-        # if joints is not None:
-        #     print("Setting to custom config")
-        #     success = self.robot.set_config(joints)
-        #     config = self._get_current_config()
-        #     diff = np.subtract(config, joints)
+        if joints is not None:
+            print("Setting to custom config")
+            success = self.robot.set_config(joints)
+            config = self._get_current_config()
+            diff = np.subtract(config, joints)
 
-        #     print("Current config vs. target; difference")
-        #     np.set_printoptions(suppress=True, linewidth=90)
-        #     print(np.array2string(
-        #         np.stack([config, joints, diff]), separator=", "))
-        #     print("EEF pose", self.robot.eef_pose())
-        #     np.set_printoptions(suppress=False, linewidth=75)
+            print("Current config vs. target; difference")
+            np.set_printoptions(suppress=True, linewidth=90)
+            print(np.array2string(
+                np.stack([config, joints, diff]), separator=", "))
+            print("EEF pose", self.robot.eef_pose())
+            np.set_printoptions(suppress=False, linewidth=75)
 
 
         print(quat_to_euler(np.array(self.robot.eef_pose()[1]), False))
-
         if gripper_pos is not None or gripper_orn is not None:
             if gripper_pos is None:
                 gripper_pos = self.robot.eef_pose()[0]
@@ -172,11 +166,12 @@ class BaseEnv(gym.Env):
 
             print("Moving to cartesian pose", gripper_pos, gripper_orn)
             success = self.robot.go_to_pose(gripper_pos, gripper_orn, cartesian=True)
-
-        else:
-            gripper_pos = self.sample_random_gripper_pos()
-            gripper_orn = self.neutral_gripper_orn
-            success = self.robot.go_to_pose(gripper_pos, gripper_orn, cartesian=True)
+        
+        # Random gripper pose
+        # else:
+        #    gripper_pos = self.sample_random_gripper_pos()
+        #    gripper_orn = self.neutral_gripper_orn
+        #    success = self.robot.go_to_pose(gripper_pos, gripper_orn, cartesian=True)
 
 
 
@@ -209,10 +204,8 @@ class BaseEnv(gym.Env):
 
             if grip_open_mean >= 0:
                 self.robot.move_gripper("open", wait=True)
-                # self.robot.move_gripper("open", wait=False)
             else:
                 self.robot.move_gripper("close", wait=True)
-                # self.robot.move_gripper("close", wait=False)
 
         processed_action["linear_velocity"] = (
             action["linear_velocity"] * SIM_DT / REAL_DT
@@ -228,8 +221,12 @@ class BaseEnv(gym.Env):
             processed_action["angular_velocity"],
         )
 
+        no_render = True
         self.rate.sleep()
-        obs = self.render()
+        if not no_render:
+            obs = self.render()
+        else:
+            obs = None
 
         # Default real robot outputs
         success = False
@@ -245,11 +242,9 @@ class BaseEnv(gym.Env):
     def get_eef_velocity(self, vel):
         self.eef_velocity = np.array([vel.x, vel.y, vel.z])
 
-    def render(self, *unused_args, **unused_kwargs):
+    def render(self, sync_record=False, **unused_kwargs):
         obs = {}
 
-        # import pudb; pudb.set_trace()
-        # Proprioceptive
         gripper_pose = self.robot.eef_pose()
         obs["gripper_pos"] = np.array(gripper_pose[0])
         obs["gripper_quat"] = np.array(gripper_pose[1])
@@ -262,21 +257,31 @@ class BaseEnv(gym.Env):
         for cam_name in self.robot.cam_list:
             cam = self.robot.cameras[cam_name]
 
+            if not sync_record:
+                obs[f"rgb_{cam_name}"], cam_pose = cam.record_image(dtype=np.uint8)
+            else:
+                obs[f"rgb_{cam_name}"], cam_pose = cam.record_image_sync(dtype=np.uint8)
+
             if f"info_{cam_name}" in self.cam_info:
                 obs[f"info_{cam_name}"] = self.cam_info[f"info_{cam_name}"]
-
-            obs[f"rgb_{cam_name}"] = cam.record_image(dtype=np.uint8)
+                obs[f"info_{cam_name}"]["pos"] = CAM_INFO[cam_name]["pos"]
+                obs[f"info_{cam_name}"]["euler"] = CAM_INFO[cam_name]["euler"]
+            else:
+                obs[f"info_{cam_name}"] = dict()
+                obs[f"info_{cam_name}"]["pos"] = cam_pose[0]
+                obs[f"info_{cam_name}"]["euler"] = cam_pose[1]
 
             if self._depth:
                 depth_cam = self.robot.depth_cameras[cam_name]
-                depth = (depth_cam.record_image(dtype=np.uint16)
-                    .astype(np.float32)
-                    .squeeze(-1)
-                    / 1000)
+                if not sync_record:
+                    depth, _ = depth_cam.record_image(dtype=np.uint16)
+                else:
+                    depth, _ = depth_cam.record_image_sync(dtype=np.uint16)
+                depth = depth.astype(np.float32).squeeze(-1) / 1000
                 obs[f"depth_{cam_name}"] = depth
 
                 if self._pcd:
-                    info_cam = self.cam_info[f"info_{cam_name}"]
+                    info_cam = obs[f"info_{cam_name}"]
                     cam_pos = info_cam["pos"]
                     cam_euler = info_cam["euler"]
                     world_T_cam = pos_euler_to_hom(cam_pos, cam_euler)
@@ -291,6 +296,7 @@ class BaseEnv(gym.Env):
                 gr_x, gr_y = gr_px[0], gr_px[1]
                 obs[f"gripper_uv_{cam_name}"] = [gr_x, gr_y]
 
+            obs["robot_info"] = self.robot.links_pose()
         return obs
 
     def close(self):
@@ -400,16 +406,16 @@ class BaseEnv(gym.Env):
         success = self.robot.gripper.go(wait=True)
         return success
 
-    def move(self, gripper_pos, gripper_quat=None, open_gripper=True):
+    def move(self, gripper_pos, gripper_quat=None, open_gripper=True, cartesian=True, only_cartesian=True):
 
-        gripper_pos = gripper_pos.astype(np.float)
-        gripper_quat = None
+        gripper_pos = gripper_pos.astype(np.double)
+        # gripper_quat = None
 
         if gripper_quat is not None:
             gripper_orn = quat_to_euler(gripper_quat, False)
         else:
-            gripper_orn = [pi, 0, pi / 2]
-        success = self.robot.go_to_pose(gripper_pos, gripper_orn, cartesian=True)
+            gripper_orn = self.neutral_gripper_orn
+        success = self.robot.go_to_pose(gripper_pos, gripper_orn, cartesian=cartesian, only_cartesian=only_cartesian)
 
         if open_gripper:
             self.robot.move_gripper("open", wait=True)
